@@ -19,6 +19,9 @@
   <img src="docs/images/turn.gif" alt="Moving through the library" width="88%">
 </p>
 
+## Cartridges
+<img width="1311" height="724" alt="preview-cartridges" src="https://github.com/user-attachments/assets/e7ba6bfa-a67d-4b1e-a1a6-c1947698384e" />
+
 ---
 
 ## ✨ Features
