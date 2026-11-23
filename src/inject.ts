@@ -59,6 +59,8 @@ const api = {
   },
   playInsert(key: string | null): boolean { return engine ? engine.playInsert(key) : false; },
   playEject(key: string | null): boolean { return engine ? engine.playInsert(key, { eject: true }) : false; },
+  previewInsert(key: string | null): boolean { return engine ? engine.playInsert(key, { force: true }) : false; },
+  previewEject(key: string | null): boolean { return engine ? engine.playInsert(key, { eject: true, force: true }) : false; },
   refresh(): string { if (engine) engine.refreshWear(); return "ok"; },
   stop(): string { if (engine) { engine.stop(); engine = null; } return "stopped"; },
   selfCheck(): CheckLine[] { return engine ? engine.selfCheck() : []; },

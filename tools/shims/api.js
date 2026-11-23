@@ -1,4 +1,4 @@
-const manifest = { name: "Finally 3D Game Cases" };
+const manifest = { name: "3D Game Cases" };
 const API_VERSION = 2;
 const conn = window.__DECKY_SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED_deckyLoaderAPIInit;
 if (!conn) throw new Error("[@decky/api]: Failed to connect to the loader as the loader API was not initialized.");

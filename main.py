@@ -1,4 +1,4 @@
-# Finally 3D Game Cases: optional background part.
+# 3D Game Cases: optional background part.
 # The panel and the 3D effect do NOT depend on this file. It only provides:
 #   - saving a report to ~/Downloads (for "it doesn't work" cases)
 #   - the safe-mode file (survives even if browser storage is wiped)
@@ -22,7 +22,7 @@ CDP_PORT = int(os.environ.get("SANSO_CDP_PORT", "8080"))
 REPORT_PREFIX = "3d-game-cases-report-"
 KEEP_REPORTS = 5
 MAX_REPORT = 2 * 1024 * 1024
-ALLOWED_CALLS = ("update", "setData", "playInsert", "refresh", "selfCheck", "report", "snapshot", "errors", "setTemplates", "playEject")
+ALLOWED_CALLS = ("update", "setData", "playInsert", "refresh", "selfCheck", "report", "snapshot", "errors", "setTemplates", "playEject", "previewInsert", "previewEject")
 TEMPLATE_DIR_NAME = "templates"
 TEMPLATE_MIME = {".png": "image/png", ".webp": "image/webp", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}
 TEMPLATE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ ()+-]{0,79}$")
@@ -241,7 +241,7 @@ class Plugin:
             os.makedirs(self.template_dir, exist_ok=True)
         except OSError:
             pass
-        log.info("Finally 3D Game Cases background part started")
+        log.info("3D Game Cases background part started")
 
     async def _unload(self):
         await self._stop_watch()
@@ -258,7 +258,7 @@ class Plugin:
             if on:
                 os.makedirs(self.settings_dir, exist_ok=True)
                 with open(self.safe_file, "w") as f:
-                    f.write("remove this file (or press the switch in the plugin) to turn Finally 3D Game Cases back on\n")
+                    f.write("remove this file (or press the switch in the plugin) to turn 3D Game Cases back on\n")
             elif os.path.exists(self.safe_file):
                 os.remove(self.safe_file)
             return True

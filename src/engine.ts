@@ -1,68 +1,124 @@
 // Engine: injects the 3D-case CSS into every Steam UI window and tags portrait covers.
 // Pure DOM code (no Decky imports) so it can be tested in a plain browser.
 
-export type StyleId = string; // a built-in id below, or "custom:<id>"
-export const STYLE_IDS: StyleId[] = [
-  "black", "white", "red", "blue", "green", "gold", "purple", "grey",
-  "ps1", "ps2", "ps3", "ps4", "ps5", "psp", "xbox", "x360", "wee", "wee2", "dreamcast", "sega", "pc",
+export type StyleId = string; // a built-in preset id (see PRESETS), "custom:<id>" (your own preset) or "tpl:<file>" (a frame picture)
+
+export interface Pal { a: string; b: string; band: string; text: string; line: string; frame?: string /* color around the art with frames on; the band color when not set */ }
+
+// ---------- presets ----------
+// A preset is a known console: the colors of its case, a band and a frame color, the case and disc or cartridge it comes with
+// (which also decides how thick its box is) and, for some, the color of its disc or cartridge.
+// Everything in it can be overridden for a collection or a game (Looks, colors and presets), and the global switches
+// (colored bands, colored frames, box thickness) win over what a preset brings along.
+export type PresetGroup = "disc" | "cart";
+export interface PresetDef { id: string; label: string; group: PresetGroup; shape: ShapeId; pal: Pal; media?: HslColor; noFrame?: boolean /* comes without a frame (Automatic = no frame) */; art?: InsertArt /* what is printed on its disc or cartridge unless a game or collection says otherwise */ }
+const DISC_BLACK: HslColor = { h: 220, s: 10, l: 15 };
+const DISC_WHITE: HslColor = { h: 0, s: 0, l: 92 };
+const LN_LIGHT = "rgba(255,255,255,.25)", LN_DARK = "rgba(0,0,0,.18)";
+const PAL_BLACK = { a: "#2c2f36", b: "#07080a", text: "#ffffff", line: "rgba(255,255,255,.22)" };
+const PAL_RED = { a: "#ff2a38", b: "#7d000a", text: "#ffffff", line: "rgba(255,255,255,.28)" };
+const PAL_GREY = { a: "#c3c7ce", b: "#555961", text: "#101214", line: "rgba(255,255,255,.3)" };
+const PAL_WHITE = { a: "#ffffff", b: "#c9ccd3", text: "#1d1f24", line: LN_DARK };
+const PAL_PS5 = { a: "#3a8fe8", b: "#0b4396", text: "#ffffff", line: "rgba(255,255,255,.28)" };
+const INK = "#0b0c0e", PAPER = "#f2f3f5";
+export const PRESETS: PresetDef[] = [
+  // ---- discs ----
+  { id: "steam", label: "Steam", group: "disc", shape: "keepcase", pal: { a: "#2a475e", b: "#0f1a24", band: "#2a475e", frame: "#2a475e", text: "#ffffff", line: LN_LIGHT } },
+  { id: "gcn", label: "GCN", group: "disc", shape: "gc", pal: { ...PAL_BLACK, band: INK, frame: INK }, media: DISC_BLACK },
+  { id: "wii", label: "Wii", group: "disc", shape: "keepcase", pal: { ...PAL_WHITE, band: PAPER, frame: PAPER }, media: DISC_WHITE },
+  { id: "wiiu", label: "Wii U", group: "disc", shape: "keepcase", pal: { a: "#52d6ff", b: "#0a7ba8", band: "#ffffff", frame: "#00a9e0", text: "#042a3a", line: "rgba(255,255,255,.4)" }, media: DISC_WHITE },
+  { id: "ps3", label: "PS1/PS3", group: "disc", shape: "keepcase", pal: { a: "rgba(222,227,236,.55)", b: "rgba(118,124,138,.70)", band: "#0b0b0d", frame: "#b9bec9", text: "#10151c", line: "rgba(255,255,255,.55)" } },
+  { id: "ps2", label: "PS2", group: "disc", shape: "keepcase", pal: { ...PAL_BLACK, band: INK, frame: INK } },
+  { id: "ps5", label: "PS4/PS5", group: "disc", shape: "keepcase", pal: { ...PAL_PS5, band: "#1560c4", frame: "#1560c4" } },
+  { id: "xbox", label: "Xbox", group: "disc", shape: "keepcase", pal: { a: "#2e8b2e", b: "#0a380a", band: "#0b0b0b", frame: "#176b17", text: "#ffffff", line: LN_LIGHT }, media: DISC_BLACK },
+  { id: "x360", label: "Xbox 360", group: "disc", shape: "keepcase", pal: { a: "#8ae857", b: "#35a81c", band: "#ffffff", frame: "#62d42e", text: "#0b2a05", line: "rgba(255,255,255,.4)" }, media: DISC_WHITE },
+  { id: "xboxone", label: "Xbox One/Series", group: "disc", shape: "keepcase", pal: { a: "#34c24a", b: "#0b4a16", band: "#107c10", frame: "#107c10", text: "#ffffff", line: "rgba(255,255,255,.28)" } },
+  // ---- cartridges ----
+  { id: "nes", noFrame: true, art: "cover", label: "NES", group: "cart", shape: "nes", pal: { ...PAL_BLACK, band: INK, frame: INK } },
+  { id: "snes", noFrame: true, label: "SNES", group: "cart", shape: "snes", pal: { ...PAL_BLACK, band: INK, frame: INK } },
+  { id: "n64", noFrame: true, art: "cover", label: "N64", group: "cart", shape: "n64", pal: { ...PAL_RED, band: "#e60012", frame: "#e60012" } },
+  { id: "gb", noFrame: true, label: "GB", group: "cart", shape: "gb", pal: { ...PAL_GREY, band: "#8d9199", frame: "#8d9199" } },
+  { id: "gbc", noFrame: true, label: "GBC", group: "cart", shape: "gbc", pal: { ...PAL_GREY, band: "#8d9199", frame: "#8d9199" } },
+  { id: "gba", noFrame: true, label: "GBA", group: "cart", shape: "gba", pal: { ...PAL_GREY, band: "#8d9199", frame: "#8d9199" } },
+  { id: "ds", label: "DS", group: "cart", shape: "ds", pal: { ...PAL_WHITE, band: "#f4f5f7", frame: INK } },
+  { id: "3ds", label: "3DS", group: "cart", shape: "3ds", pal: { ...PAL_WHITE, band: PAPER, frame: PAPER } },
+  { id: "switch", label: "Switch", group: "cart", shape: "cartridge", pal: { ...PAL_RED, band: "#e60012", frame: "#e60012" } },
 ];
-export const STYLE_LABELS: Record<string, string> = {
-  black: "Black (PC)", white: "White", red: "Red", blue: "Blue", green: "Green (Xbox One/Series)",
-  gold: "Gold", purple: "Purple", grey: "Grey (Retro)",
-  ps1: "PS1 grey", ps2: "PS2 dark blue", ps3: "PS3 crystal gray", ps4: "PS4 open blue", ps5: "PS5 blue",
-  psp: "PSP black", xbox: "Xbox dark green", x360: "Xbox 360 open green", wee: "White", wee2: "Cyan",
-  dreamcast: "Dreamcast", sega: "Sega Genesis", pc: "PC big box (Steam blue)",
-};
-export const STYLE_SHORT: Record<string, string> = {
-  black: "Black", white: "White", red: "Secret", blue: "Blue", green: "Green", gold: "Gold", purple: "Purple", grey: "Grey",
-  ps1: "PS1", ps2: "PS2", ps3: "PS3", ps4: "PS4", ps5: "PS5", psp: "PSP", xbox: "Xbox", x360: "360", wee: "Wee", wee2: "Wee Too",
-  dreamcast: "DC", sega: "Sega", pc: "PC",
-};
+export const STYLE_IDS: StyleId[] = PRESETS.map((p) => p.id);
+export const DISC_PRESET_IDS: StyleId[] = PRESETS.filter((p) => p.group === "disc").map((p) => p.id);
+export const CART_PRESET_IDS: StyleId[] = PRESETS.filter((p) => p.group === "cart").map((p) => p.id);
+export const STYLE_LABELS: Record<string, string> = {};
+export const PALETTE: Record<string, Pal> = {};
+PRESETS.forEach((p) => { STYLE_LABELS[p.id] = p.label; PALETTE[p.id] = p.pal; });
+export const DEFAULT_PRESET: StyleId = "steam";
+export function presetDef(id: string): PresetDef | null { return PRESETS.filter((p) => p.id === id)[0] || null; }
 
-export interface Pal { a: string; b: string; band: string; text: string; line: string }
-export const PALETTE: Record<string, Pal> = {
-  black: { a: "#2c2f36", b: "#07080a", band: "#3b3f48", text: "#ffffff", line: "rgba(255,255,255,.22)" },
-  white: { a: "#ffffff", b: "#c9ccd3", band: "#e4e6ea", text: "#1d1f24", line: "rgba(0,0,0,.18)" },
-  red: { a: "#ff2a38", b: "#7d000a", band: "#e60012", text: "#ffffff", line: "rgba(255,255,255,.28)" },
-  blue: { a: "#2b86ff", b: "#05306e", band: "#0070d1", text: "#ffffff", line: "rgba(255,255,255,.28)" },
-  green: { a: "#34c24a", b: "#0b4a16", band: "#107c10", text: "#ffffff", line: "rgba(255,255,255,.28)" },
-  gold: { a: "#f6d365", b: "#8a6a10", band: "#d4a017", text: "#2a1d00", line: "rgba(255,255,255,.35)" },
-  purple: { a: "#a566ee", b: "#3a1566", band: "#7b2fbe", text: "#ffffff", line: "rgba(255,255,255,.28)" },
-  grey: { a: "#c3c7ce", b: "#555961", band: "#8d9199", text: "#101214", line: "rgba(255,255,255,.3)" },
-  ps1: { a: "#9a9da5", b: "#2b2d31", band: "#5b5e66", text: "#ffffff", line: "rgba(255,255,255,.25)" },
-  ps2: { a: "#2547c4", b: "#081552", band: "#0e2a8f", text: "#ffffff", line: "rgba(255,255,255,.25)" },
-  ps3: { a: "rgba(222,227,236,.55)", b: "rgba(118,124,138,.70)", band: "rgba(150,156,170,.75)", text: "#10151c", line: "rgba(255,255,255,.55)" },
-  ps4: { a: "#63bcff", b: "#1f7ae8", band: "#2f94ff", text: "#06203f", line: "rgba(255,255,255,.35)" },
-  ps5: { a: "#3a8fe8", b: "#0b4396", band: "#1560c4", text: "#ffffff", line: "rgba(255,255,255,.28)" },
-  psp: { a: "#34363c", b: "#08080a", band: "#16171a", text: "#ffffff", line: "rgba(255,255,255,.2)" },
-  xbox: { a: "#2e8b2e", b: "#0a380a", band: "#176b17", text: "#ffffff", line: "rgba(255,255,255,.25)" },
-  x360: { a: "#8ae857", b: "#35a81c", band: "#62d42e", text: "#0b2a05", line: "rgba(255,255,255,.4)" },
-  wee: { a: "#fbfcfe", b: "#b7c2cf", band: "#00b4e6", text: "#16202b", line: "rgba(0,0,0,.18)" },
-  wee2: { a: "#52d6ff", b: "#0a7ba8", band: "#00a9e0", text: "#042a3a", line: "rgba(255,255,255,.4)" },
-  dreamcast: { a: "#ffffff", b: "#c9ccd3", band: "#f26a21", text: "#1d1f24", line: "rgba(0,0,0,.18)" },
-  pc: { a: "#2a475e", b: "#0f1a24", band: "#66c0f4", text: "#ffffff", line: "rgba(255,255,255,.25)" },
-  sega: { a: "#30343c", b: "#050507", band: "#0060a8", text: "#ffffff", line: "rgba(255,255,255,.2)" },
-};
-
-export type ShapeId = "keepcase" | "cartridge" | "jewel" | "bigbox";
-export const SHAPE_IDS: ShapeId[] = ["keepcase", "cartridge", "jewel", "bigbox"];
+// "cartridge" is the Switch game card (its id is kept so saved settings still work)
+export type ShapeId = "keepcase" | "gc" | "cartridge" | "jewel" | "bigbox" | "nes" | "snes" | "n64" | "gb" | "gbc" | "gba" | "ds" | "3ds";
+export const SHAPE_IDS: ShapeId[] = ["keepcase", "jewel", "bigbox", "nes", "snes", "n64", "gb", "gbc", "gba", "gc", "ds", "3ds", "cartridge"];
 export const SHAPE_LABELS: Record<string, string> = {
-  auto: "Auto", keepcase: "Keepcase", cartridge: "Cartridge case", jewel: "Jewel case", bigbox: "Big box",
+  auto: "Auto", keepcase: "Standard", gc: "GCN", cartridge: "Switch", jewel: "Thin", bigbox: "Thick",
+  nes: "NES", snes: "SNES", n64: "N64", gb: "GB", gbc: "GBC", gba: "GBA", ds: "DS", "3ds": "3DS",
 };
+// Thickness is a multiple of the "Box Thickness" slider, which is the thickness of a standard DVD case (so a DVD case is 100%).
+// The big box and the old cartridges (NES, SNES, N64, Game Boy, Game Boy Color, GBA) are the thickest cases, 5/3 of a DVD case
+// (125% where the slider stands at the old 75% default: standard 75, thick 125, thin 50); the DS and 3DS cases are as thick as a
+// regular DVD case (keepcase, GameCube); the Switch card and the jewel case are the thinnest, 2/3 of a DVD case.
+const THICKEST = 5 / 3;
+const OLD_CART = THICKEST;
+const DVD_CASE = 1;
+const THINNEST = 2 / 3;
 const SHAPES: Record<ShapeId, { depth: number; radius: number; rim: number }> = {
-  keepcase: { depth: 1, radius: 2, rim: 0 },
-  cartridge: { depth: 0.5, radius: 5, rim: 0 },
-  jewel: { depth: 0.45, radius: 1, rim: 3 },
-  bigbox: { depth: 2.4, radius: 0, rim: 0 },
+  keepcase: { depth: DVD_CASE, radius: 2, rim: 0 },
+  gc: { depth: DVD_CASE, radius: 2, rim: 0 }, // like a keepcase; only the disc (a mini disc) is smaller
+  cartridge: { depth: THINNEST, radius: 5, rim: 0 },
+  jewel: { depth: THINNEST, radius: 1, rim: 3 },
+  bigbox: { depth: THICKEST, radius: 0, rim: 0 },
+  n64: { depth: OLD_CART, radius: 4, rim: 0 },
+  gba: { depth: OLD_CART, radius: 5, rim: 0 },
+  gb: { depth: OLD_CART, radius: 4, rim: 0 },
+  gbc: { depth: OLD_CART, radius: 4, rim: 0 },
+  ds: { depth: DVD_CASE, radius: 6, rim: 0 },
+  nes: { depth: OLD_CART, radius: 3, rim: 0 },
+  snes: { depth: OLD_CART, radius: 4, rim: 0 },
+  "3ds": { depth: DVD_CASE, radius: 6, rim: 0 },
 };
-const SLEEVE_R: Record<ShapeId, number> = { keepcase: 7, cartridge: 10, jewel: 2, bigbox: 2 };
-// which case each console look comes in when the shape is "Auto"
-const STYLE_SHAPE: Record<string, ShapeId> = { red: "cartridge", psp: "cartridge", ps1: "jewel", dreamcast: "jewel", pc: "bigbox" };
+const SLEEVE_R: Record<ShapeId, number> = { keepcase: 7, gc: 7, cartridge: 10, jewel: 2, bigbox: 2, n64: 8, gba: 9, gb: 8, gbc: 8, ds: 10, nes: 6, snes: 8, "3ds": 10 };
+
+/** a color for a game's cartridge in the insert animation: hue 0-360, saturation and lightness 0-100 */
+export interface HslColor { h: number; s: number; l: number }
+export const COLOR_PRESETS: { name: string; c: HslColor }[] = [
+  { name: "Black", c: { h: 220, s: 10, l: 15 } },
+  { name: "White", c: { h: 0, s: 0, l: 92 } },
+  { name: "Silver", c: { h: 220, s: 8, l: 72 } },
+  { name: "Red", c: { h: 2, s: 75, l: 46 } },
+  { name: "Blue", c: { h: 215, s: 72, l: 46 } },
+  { name: "Green", c: { h: 140, s: 60, l: 36 } },
+  { name: "Yellow", c: { h: 50, s: 90, l: 50 } },
+  { name: "Gold", c: { h: 43, s: 70, l: 55 } },
+  { name: "Orange", c: { h: 28, s: 90, l: 52 } },
+  { name: "Cyan", c: { h: 195, s: 60, l: 58 } },
+  { name: "Purple", c: { h: 275, s: 55, l: 45 } },
+  { name: "Pink", c: { h: 330, s: 70, l: 62 } },
+];
+
+export type InsertArt = "cover" | "fit" | "logo" | "none";
+/** Where the game's logo sits on a disc (it is printed on the top part by default). */
+export type LogoPos = "top" | "left" | "right" | "bottom";
+export const LOGO_POS_IDS: LogoPos[] = ["top", "left", "right", "bottom"];
+export const LOGO_POS_LABELS: Record<LogoPos, string> = { top: "Top", left: "Left", right: "Right", bottom: "Bottom" };
+/** How far the cover can be moved up or down on a disc or cartridge printed with Cover (Fill): % of the room the picture has to move (0 = where it starts: centered). */
+export const ART_Y_MIN = -50, ART_Y_MAX = 50;
+export const INSERT_ART_IDS: InsertArt[] = ["logo", "cover", "fit", "none"];
+export const INSERT_SPEEDS = [0.5, 1, 1.5, 2, 3];
 
 export type WearId = "none" | "sealed" | "light" | "worn" | "battered" | "faded" | "rental";
 export const WEAR_IDS: WearId[] = ["none", "sealed", "light", "worn", "battered", "faded", "rental"];
+// From the least to the most wear: by the amount played (never opened; under 1 hour; 1 to 10 hours; 10 to 50; over 50; "slow"/"fast" wear change
+// the hours), then the two that are not an amount of playtime: sun-faded (played, but not for over a year) and the rental sticker (only set by hand)
+export const WEAR_SORTED: WearId[] = ["sealed", "none", "light", "worn", "battered", "faded", "rental"];
 export const WEAR_LABELS: Record<string, string> = {
-  none: "Mint", sealed: "Sealed (never opened)", light: "Light scuffs", worn: "Well worn", battered: "Battered", faded: "Sun-faded", rental: "Rental sticker",
+  none: "Mint", sealed: "Sealed", light: "Light Scuffs", worn: "Well-Worn", battered: "Battered", faded: "Sun-Faded", rental: "Rental Sticker",
 };
 const SCUFF = "repeating-linear-gradient(118deg, rgba(255,255,255,.08) 0 1px, transparent 1px 19px)";
 const WEAR_CSS: Record<WearId, string> = {
@@ -75,17 +131,21 @@ const WEAR_CSS: Record<WearId, string> = {
   rental: `linear-gradient(90deg, #d33 0 12%, #f3f0e4 12% 100%) 7% 92% / 38% 5.5% no-repeat, ${SCUFF}`,
 };
 
-export interface CustomColor { id: string; name: string; h: number; s: number; l: number; glass: boolean; shape: ShapeId | "auto" }
+/** One of your own presets: a name, a color, and optionally a band color and a frame color of their own
+ *  (no band color = the band matches the color; no frame color = the frame matches the band). */
+export interface CustomColor { id: string; name: string; h: number; s: number; l: number; glass: boolean; shape: ShapeId | "auto"; band?: HslColor; frame?: HslColor; media?: HslColor /* color of its disc or cartridge */ }
 
 export function customPalette(c: CustomColor): Pal {
   const f = (h: number, s: number, l: number) => (c.glass ? `hsla(${h},${s}%,${l}%,.6)` : `hsl(${h},${s}%,${l}%)`);
-  return {
+  const pal: Pal = {
     a: f(c.h, c.s, Math.min(92, c.l + 16)),
     b: f(c.h, c.s, Math.max(5, c.l - 26)),
-    band: f(c.h, c.s, c.l),
+    band: c.band ? `hsl(${c.band.h}, ${c.band.s}%, ${c.band.l}%)` : f(c.h, c.s, c.l),
     text: c.l > 62 ? "#111111" : "#ffffff",
     line: c.l > 62 ? "rgba(0,0,0,.2)" : "rgba(255,255,255,.28)",
   };
+  if (c.frame) pal.frame = `hsl(${c.frame.h}, ${c.frame.s}%, ${c.frame.l}%)`;
+  return pal;
 }
 
 
@@ -106,7 +166,7 @@ const DEFAULT_WIN = { l: 0.03, t: 0.1, r: 0.03, b: 0.03 }; // fractions of the p
 
 function median(a: number[]): number { const b = a.slice().sort((x, y) => x - y); return b.length ? b[Math.floor(b.length / 2)] : 0; }
 
-/** Finds the empty window of a template and its main colour by looking at the pixels (nothing is sent anywhere). */
+/** Finds the empty window of a template and its main color by looking at the pixels (nothing is sent anywhere). */
 export function analyzeTemplate(img: HTMLImageElement, win?: number[] | null): { win: TemplateInfo["win"]; pal: Pal } {
   const doc = img.ownerDocument;
   const W = 120, H = 180;
@@ -148,7 +208,7 @@ export function analyzeTemplate(img: HTMLImageElement, win?: number[] | null): {
       w = { l: cand.l < 0.008 ? DEFAULT_WIN.l : cand.l, t: cand.t < 0.008 ? DEFAULT_WIN.t : cand.t, r: cand.r < 0.008 ? DEFAULT_WIN.r : cand.r, b: cand.b < 0.008 ? DEFAULT_WIN.b : cand.b };
     }
   }
-  // colour of the frame: the border strip beside the window
+  // color of the frame: the border strip beside the window
   let r = 0, gg = 0, b = 0, n = 0;
   if (data) for (let y = (H * 0.3) | 0; y < ((H * 0.8) | 0); y += 4) for (const x of [Math.max(0, ((w.l * W) | 0) - 2), Math.min(W - 1, W - ((w.r * W) | 0) + 1)]) { const p = px(x, y); if (p[3] > 100) { r += p[0]; gg += p[1]; b += p[2]; n++; } }
   const base = n ? [r / n, gg / n, b / n] : [60, 66, 78];
@@ -203,61 +263,105 @@ ${rules}
 `;
 }
 
-export function paletteFor(s: Settings, id: string): Pal {
-  if (id.indexOf(TPL_PREFIX) === 0) return TEMPLATES[id] ? TEMPLATES[id].pal : PALETTE.black;
-  if (id.indexOf("custom:") === 0) {
-    const c = s.customs.filter((x) => "custom:" + x.id === id)[0];
-    return c ? customPalette(c) : PALETTE.black;
+const hslCss = (c: HslColor) => `hsl(${c.h}, ${c.s}%, ${c.l}%)`;
+
+/** What one collection or one game decides for itself (Looks, colors and presets). Whatever it leaves out follows the next
+ *  level: a game follows its collections, a collection follows the global settings. Any of these can differ from the global
+ *  setting of the same name, and then it wins over it (and over what the preset brings along). */
+export interface ItemOv {
+  preset?: StyleId;                  // the preset (a console, one of your own, or a frame picture)
+  shape?: ShapeId;                   // the case and the disc or cartridge
+  media?: HslColor;                  // color of the disc or cartridge
+  off?: boolean;                     // true = no 3D case; false = 3D even if its collection has it off
+  band?: boolean;                    // colored band on or off
+  frame?: boolean;                   // colored frame on or off
+  caseColor?: HslColor;              // color of the box (its sides, back and spine); the frame follows it unless it has a color of its own
+  bandColor?: HslColor;
+  frameColor?: HslColor;
+  thickMode?: "thin" | "standard" | "thick" | "varied"; // a thickness of its own (thin like a jewel case or the Switch, standard like a DVD case, thick like the old cartridges), or the preset's own
+  thick?: number;                    // thickness as a multiple of the normal one (1 = normal)
+  wear?: WearId;
+  art?: InsertArt;                   // what is printed on the disc or cartridge: logo, cover, whole cover or nothing
+  logoPos?: LogoPos;                 // discs printed with the logo: which part of the disc the logo is on (top when not set)
+  artY?: number;                     // Cover (Fill): the cover moved down (+) or up (-), -50 to 50 (0 = centered, as it started)
+  window?: HslColor;                 // cartridges: color of the art window behind the logo (or whole cover, or nothing)
+  windowMode?: "match";              // cartridges: the art window has the color of the cartridge (when no window color is set)
+  slot?: "handheld" | "console";     // the slot of the insert animation: bottom or side
+  when?: "before" | "after";         // the insert animation before or after Steam's game logo
+  insert?: boolean;                  // insert animation on or off
+  eject?: boolean;                   // eject animation on or off
+}
+export const OV_KEYS: (keyof ItemOv)[] = ["preset", "shape", "media", "off", "band", "frame", "caseColor", "bandColor", "frameColor", "thickMode", "thick", "wear", "art", "logoPos", "artY", "window", "windowMode", "slot", "when", "insert", "eject"];
+
+export function paletteFor(s: Settings, id: string, ov?: ItemOv | null): Pal {
+  const base = basePalette(s, id);
+  if (!ov || (!ov.bandColor && !ov.frameColor && !ov.caseColor) || id.indexOf(TPL_PREFIX) === 0) return base;
+  let p = base;
+  if (ov.caseColor) {
+    // a color of its own for the box: lighter at the front edge of the sides, darker at the back; the frame matches it unless it has its own
+    const c = ov.caseColor, light = c.l > 62;
+    p = {
+      ...p, a: `hsl(${c.h}, ${c.s}%, ${Math.min(94, c.l + 9)}%)`, b: `hsl(${c.h}, ${c.s}%, ${Math.max(4, c.l - 17)}%)`,
+      text: light ? "#10151c" : "#ffffff", line: light ? "rgba(0,0,0,.18)" : "rgba(255,255,255,.25)", frame: hslCss(c),
+    };
   }
-  return PALETTE[id] || PALETTE.black;
+  const band = ov.bandColor ? hslCss(ov.bandColor) : p.band;
+  return { ...p, band, frame: ov.frameColor ? hslCss(ov.frameColor) : (p.frame || band) };
 }
 
-// The four looks that are named after a console family have names the user can change.
-export const NAMEABLE = ["red", "wee", "wee2", "purple"];
-export const DEFAULT_NAMES: Record<string, string> = { red: "Secret Console", wee: "Wee", wee2: "Wee Too", purple: "PlayCube" };
-export const NAME_SUFFIX: Record<string, string> = { red: "red", wee: "white", wee2: "cyan", purple: "purple" };
+/** The color of a look's box as drawn (the middle of its lighter and darker shade): where the color sliders start. */
+export function caseColorOf(look: Look): HslColor {
+  const a = cssToHsl(look.pal.a), b = cssToHsl(look.pal.b);
+  if (!a) return { h: 220, s: 10, l: 30 };
+  return { h: a.h, s: a.s, l: b ? Math.round((a.l + b.l) / 2) : a.l };
+}
 
-export function consoleName(s: Settings, id: string): string {
-  const n = (s.names[id] || "").trim();
-  return n || DEFAULT_NAMES[id];
+function basePalette(s: Settings, id: string): Pal {
+  if (id.indexOf(TPL_PREFIX) === 0) return TEMPLATES[id] ? TEMPLATES[id].pal : PALETTE[DEFAULT_PRESET];
+  if (id.indexOf("custom:") === 0) {
+    const c = s.customs.filter((x) => "custom:" + x.id === id)[0];
+    return c ? customPalette(c) : PALETTE[DEFAULT_PRESET];
+  }
+  return PALETTE[id] || PALETTE[DEFAULT_PRESET];
 }
 
 export function styleLabel(s: Settings, id: string): string {
   if (id.indexOf(TPL_PREFIX) === 0) return tplLabel(id);
-  if (NAMEABLE.indexOf(id) >= 0) return `${consoleName(s, id)} ${NAME_SUFFIX[id]}`;
   if (id.indexOf("custom:") === 0) {
     const c = s.customs.filter((x) => "custom:" + x.id === id)[0];
-    return c ? c.name : "Black (PC)";
+    return c ? c.name : STYLE_LABELS[DEFAULT_PRESET];
   }
   return STYLE_LABELS[id] || id;
 }
 
 export interface Settings {
+  schema: number;      // version of the saved settings layout (see sanitize)
   enabled: boolean;
   angle: number;       // degrees, 0..40
-  depth: number;       // case thickness in px, 6..30
-  color: StyleId;      // default look
+  depth: number;       // thickness of a standard DVD case in px (fixed at 18; the other cases are a multiple of it)
+  thickness: "thin" | "standard" | "thick"; // the default box thickness, for every case (or, with Case Thickness Variation, for the cases whose preset has no thickness of its own)
+  color: StyleId;      // default preset: the look of everything that has no preset of its own
   gloss: boolean;
   shadow: boolean;
-  band: boolean;       // coloured band along the top of the cover
+  band: boolean;       // colored band along the top of the cover
+  bandFrame: boolean;  // colored frames: the art is shrunk a little and framed in the preset's frame color instead of being covered at the top
+  varyThickness: boolean; // true: each preset has its own box thickness; false: every case is as thick as a DVD case
   spineTitle: boolean; // game name on the spine
   float: boolean;      // slow, tiny drifting motion on the game you are on
   idleTilt: number;    // tilt of covers you are not on, 0..20 (0 = flat, cheapest)
-  autoGuess: boolean;  // guess the look from a collection's name (console names, PlayStation, Xbox...)
-  names: Record<string, string>;         // your names for the four console-family looks
-  shape: ShapeId | "auto";               // case shape (auto = by console look)
+  shape: ShapeId | "auto";               // case and disc or cartridge for all games (auto = what the preset brings); per-collection and per-game ones win over it
+  neighborLean: number;                  // how far the games beside the one you are on lean away, degrees 1..30
+  nbPause: boolean;                      // a game you just left settles flat first and then leans (false: it goes straight into its lean, its box hidden at once)
   wear: WearId;                          // default wear
-  playWear: boolean;                     // wear follows how much you played the game
+  playWear: boolean;                     // wear is on: cases wear as you play (at wearSpeed), or all get the same wear (wearOverride)
+  wearOverride: boolean;                 // every case gets the wear chosen in `wear`, whatever the playtime
   wearSpeed: "slow" | "normal" | "fast"; // how quickly playtime wears a case
-  insertAnim: boolean;                   // experimental: disc / card flies into the slot when a game launches
-  insertTarget: "auto" | "handheld" | "console";
-  wears: Record<string, WearId>;         // per-collection wear, key = collection id
-  gameWears: Record<string, WearId>;     // per-game wear (wins over everything), key = app id
+  insertAnim: boolean;                   // disc / card flies into the slot when a game launches
+  insertTarget: "handheld" | "console";   // the slot the disc or cartridge goes into: at the bottom, or at the side
   fallback: "auto" | "off" | "always";   // inject through Steam's debug port when the library window can't be reached
   safeMode: boolean;                     // everything off
   checkedOnce: boolean;                  // the first-run self-check has been run
   shine: boolean;                        // light sweep when a game pops out
-  otherScreens: boolean;                 // also Home recent games and the game page
   sleeve: boolean;                       // rounded case with a clear plastic sleeve edge
   pickup: boolean;                       // quick lift when you open a game
   neighbors: boolean;                    // the games next to the one you are on lean away
@@ -265,10 +369,14 @@ export interface Settings {
   insertSound: boolean;                  // sounds for the insert animation
   insertWhen: "before" | "after";        // play before Steam's game-logo launch screen, or after it
   ejectAnim: boolean;                    // the disc comes back out and the case closes when you quit a game
+  insertSpeed: number;                   // speed of the insert animation (1 = as designed, 2 = twice as fast)
+  ejectSpeed: number;                    // speed of the eject animation
+  insertArt: InsertArt;                  // what is printed on the disc / cartridge in the animation
+  windowMode: "black" | "white" | "match"; // a cartridge's art window: black, white, or the color of the cartridge (a color set for a game or collection wins)
   lessMotion: "off" | "battery" | "always"; // no drifting, shine or leaning neighbours (always, or only on battery)
-  customs: CustomColor[];                // your own colours
-  games: Record<string, StyleId>;        // per-game look, key = app id
-  collections: Record<string, StyleId>;  // per-collection look, key = collection id
+  customs: CustomColor[];                // your own presets
+  gameOv: Record<string, ItemOv>;        // per-game overrides (win over everything), key = app id
+  collOv: Record<string, ItemOv>;        // per-collection overrides, key = collection id
 }
 
 /** The settings the cases are drawn with: "less motion" switches off drifting, shine and leaning neighbours. */
@@ -277,10 +385,13 @@ export function withLessMotion(s: Settings, onBattery: boolean): Settings {
   return on ? { ...s, float: false, shine: false, neighbors: false } : s;
 }
 
+export const SCHEMA = 5;
 export const DEFAULTS: Settings = {
-  enabled: true, angle: 32, depth: 24, color: "black", gloss: true, shadow: true, band: true,
-  spineTitle: false, float: true, idleTilt: 0, autoGuess: true, names: {}, shape: "auto", wear: "none", playWear: false, wearSpeed: "normal", insertAnim: false, insertTarget: "auto", wears: {}, gameWears: {}, fallback: "auto", safeMode: false, checkedOnce: false, shine: true, otherScreens: false, sleeve: true, pickup: true, neighbors: true, speed: "normal", insertSound: true, insertWhen: "before", ejectAnim: false, lessMotion: "off",
-  customs: [], games: {}, collections: {},
+  schema: SCHEMA, enabled: true, angle: 32, depth: 18, thickness: "standard", color: DEFAULT_PRESET, gloss: true, shadow: true, band: true, bandFrame: true, varyThickness: true,
+  spineTitle: false, float: true, idleTilt: 0, shape: "auto", neighborLean: 9, nbPause: false, insertSpeed: 1, ejectSpeed: 1, insertArt: "logo",
+  wear: "none", playWear: false, wearOverride: false, wearSpeed: "normal", insertAnim: false, insertTarget: "handheld", windowMode: "black", fallback: "auto", safeMode: false, checkedOnce: false,
+  shine: true, sleeve: true, pickup: true, neighbors: true, speed: "normal", insertSound: true, insertWhen: "before",
+  ejectAnim: false, lessMotion: "off", customs: [], gameOv: {}, collOv: {},
 };
 
 const STORE_KEY = "sanso-3d-game-cases";
@@ -298,8 +409,15 @@ export function saveSettings(s: Settings): void {
   try { window.localStorage.setItem(STORE_KEY, JSON.stringify(s)); } catch (e) { /* ignore */ }
 }
 
-const ID_ALIAS: Record<string, string> = { wii: "wee", wiiu: "wee2" };
-function fixId(id: any): any { return typeof id === "string" && ID_ALIAS[id] ? ID_ALIAS[id] : id; }
+// Saved looks of earlier versions: the ones that are a listed console now carry over to it (the old Black is PS2). Looks that are gone (Gold, Red, Blue, Gray,
+// Black frame/white band, PSP, Dreamcast, Sega, PC big box) are dropped: whatever used one goes back to Automatic.
+// (To keep an old look, make it a preset of your own under Presets, My presets.)
+const ID_ALIAS: Record<string, string> = {
+  black: "ps2", ps2: "ps2", white: "wii", wii: "wii", wee: "wii", wee2: "wiiu", wiiu: "wiiu", wiiuwhite: "wiiu",
+  ps1: "ps3", ps3: "ps3", ps4: "ps5", ps5: "ps5", xbox: "xbox", xboxblack: "xbox", x360: "x360", x360white: "x360",
+  green: "xboxone", xboxone: "xboxone", steam: "steam",
+};
+function fixId(id: any): any { return typeof id === "string" && Object.prototype.hasOwnProperty.call(ID_ALIAS, id) ? ID_ALIAS[id] : id; }
 
 function validId(id: any, customs: CustomColor[]): boolean {
   if (typeof id !== "string") return false;
@@ -308,24 +426,74 @@ function validId(id: any, customs: CustomColor[]): boolean {
   return id.indexOf("custom:") === 0 && customs.some((c) => "custom:" + c.id === id);
 }
 
-function cleanMap(m: any, customs: CustomColor[]): Record<string, StyleId> {
-  const out: Record<string, StyleId> = {};
-  if (m && typeof m === "object") {
-    for (const k of Object.keys(m)) { const v = fixId(m[k]); if (validId(v, customs)) out[k] = v; }
+function cleanHsl(c: any): HslColor | null {
+  if (!c || typeof c !== "object") return null;
+  const n = (v: any, lo: number, hi: number) => (typeof v === "number" && isFinite(v) ? Math.round(Math.min(hi, Math.max(lo, v))) : null);
+  const h = n(c.h, 0, 360), sa = n(c.s, 0, 100), l = n(c.l, 4, 94);
+  return h !== null && sa !== null && l !== null ? { h, s: sa, l } : null;
+}
+
+export const THICK_MIN = 0.25, THICK_MAX = 3;
+function cleanThickNum(v: any): number | null {
+  return typeof v === "number" && isFinite(v) ? Math.round(Math.min(THICK_MAX, Math.max(THICK_MIN, v)) * 100) / 100 : null;
+}
+
+function cleanOv(m: any, customs: CustomColor[]): ItemOv {
+  const o: ItemOv = {};
+  if (!m || typeof m !== "object") return o;
+  const preset = fixId(m.preset);
+  if (validId(preset, customs)) o.preset = preset;
+  if (SHAPE_IDS.indexOf(m.shape) >= 0) o.shape = m.shape;
+  (["off", "band", "frame", "insert", "eject"] as const).forEach((k) => { if (typeof m[k] === "boolean") o[k] = m[k]; });
+  (["media", "caseColor", "bandColor", "frameColor", "window"] as const).forEach((k) => { const c = cleanHsl(m[k]); if (c) o[k] = c; });
+  if (m.thickMode === "thin" || m.thickMode === "standard" || m.thickMode === "thick" || m.thickMode === "varied") o.thickMode = m.thickMode;
+  const th = cleanThickNum(m.thick); if (th !== null) o.thick = th;
+  if (WEAR_IDS.indexOf(m.wear) >= 0) o.wear = m.wear;
+  if (INSERT_ART_IDS.indexOf(m.art) >= 0) o.art = m.art;
+  if (LOGO_POS_IDS.indexOf(m.logoPos) >= 0) o.logoPos = m.logoPos;
+  if (typeof m.artY === "number" && isFinite(m.artY)) o.artY = Math.round(Math.min(ART_Y_MAX, Math.max(ART_Y_MIN, m.artY)));
+  if (m.windowMode === "match") o.windowMode = "match";
+  if (m.slot === "handheld" || m.slot === "console") o.slot = m.slot;
+  if (m.when === "before" || m.when === "after") o.when = m.when;
+  return o;
+}
+
+function cleanOvMap(m: any, customs: CustomColor[]): Record<string, ItemOv> {
+  const out: Record<string, ItemOv> = {};
+  if (m && typeof m === "object") for (const k of Object.keys(m)) {
+    if (k.length > 64) continue;
+    const o = cleanOv(m[k], customs);
+    if (Object.keys(o).length) out[k] = o;
   }
   return out;
 }
 
-function cleanNames(m: any): Record<string, string> {
-  const out: Record<string, string> = {};
-  if (m && typeof m === "object") for (const k of NAMEABLE) if (typeof m[k] === "string") out[k] = m[k].slice(0, 24);
-  return out;
-}
-
-function cleanWears(m: any): Record<string, WearId> {
-  const out: Record<string, WearId> = {};
-  if (m && typeof m === "object") for (const k of Object.keys(m)) if (WEAR_IDS.indexOf(m[k]) >= 0) out[k] = m[k];
-  return out;
+// Versions before 1.12 kept every per-game and per-collection setting in a map of its own (games, collections, shapes,
+// gameShapes, cartColors, bands, ...). They are read once, into the overrides above; the saved settings no longer have them.
+function legacyOv(x: any, customs: CustomColor[]): { game: Record<string, ItemOv>; coll: Record<string, ItemOv> } {
+  const game: Record<string, ItemOv> = {}, coll: Record<string, ItemOv> = {};
+  const put = (src: any, dst: Record<string, ItemOv>, key: keyof ItemOv, pick: (v: any) => any) => {
+    if (!src || typeof src !== "object") return;
+    for (const id of Object.keys(src)) {
+      const v = pick(src[id]);
+      if (v === undefined || v === null) continue;
+      const o: any = dst[id] || (dst[id] = {});
+      o[key] = v;
+    }
+  };
+  const preset = (v: any) => { const f = fixId(v); return validId(f, customs) ? f : undefined; };
+  const shape = (v: any) => (SHAPE_IDS.indexOf(v) >= 0 ? v : undefined);
+  const hsl = (v: any) => cleanHsl(v);
+  const bool = (v: any) => (typeof v === "boolean" ? v : undefined);
+  const wear = (v: any) => (WEAR_IDS.indexOf(v) >= 0 ? v : undefined);
+  put(x.games, game, "preset", preset); put(x.collections, coll, "preset", preset);
+  put(x.gameShapes, game, "shape", shape); put(x.shapes, coll, "shape", shape);
+  put(x.gameCartColors, game, "media", hsl); put(x.cartColors, coll, "media", hsl);
+  put(x.gameOffs, game, "off", bool); put(x.offs, coll, "off", (v) => (v === true ? true : undefined));
+  put(x.gameBands, game, "band", bool); put(x.bands, coll, "band", bool);
+  put(x.gameThick, game, "thick", cleanThickNum); put(x.thick, coll, "thick", cleanThickNum);
+  put(x.gameWears, game, "wear", wear); put(x.wears, coll, "wear", wear);
+  return { game, coll };
 }
 
 export function sanitize(x: any): Settings {
@@ -337,39 +505,72 @@ export function sanitize(x: any): Settings {
   if (Array.isArray(x.customs)) {
     for (const c of x.customs.slice(0, 12)) {
       if (!c || typeof c.id !== "string" || !/^[a-z0-9]{1,12}$/.test(c.id)) continue;
-      customs.push({
+      const preset: CustomColor = {
         id: c.id, name: typeof c.name === "string" ? c.name.slice(0, 24) : "Custom",
         h: Math.round(n(c.h, 0, 360, 210)), s: Math.round(n(c.s, 0, 100, 70)), l: Math.round(n(c.l, 5, 90, 45)), glass: b(c.glass, false),
         shape: SHAPE_IDS.indexOf(c.shape) >= 0 ? c.shape : "auto",
-      });
+      };
+      const band = cleanHsl(c.band), frame = cleanHsl(c.frame), media = cleanHsl(c.media);
+      if (band) preset.band = band;
+      if (frame) preset.frame = frame;
+      if (media) preset.media = media;
+      customs.push(preset);
     }
   }
+  // per-game and per-collection overrides: the ones saved by an earlier version first, then the current ones over them
+  const old = legacyOv(x, customs);
+  const sv = typeof x.schema === "number" ? x.schema : 1; // version of the saved settings
+  const merge = (a: Record<string, ItemOv>, bb: Record<string, ItemOv>) => {
+    const out: Record<string, ItemOv> = {};
+    for (const k of Object.keys(a)) out[k] = { ...cleanOv(a[k], customs) };
+    for (const k of Object.keys(bb)) out[k] = { ...(out[k] || {}), ...bb[k] };
+    return out;
+  };
+  const gameOv = merge(old.game, cleanOvMap(x.gameOv, customs));
+  const collOv = merge(old.coll, cleanOvMap(x.collOv, customs));
+  // the default preset is Steam now; the old default look (Black) is replaced once
+  let color = fixId(x.color);
+  if (!validId(color, customs)) color = DEFAULTS.color;
+  else if (sv < 2 && x.color === "black") color = DEFAULTS.color;
+  const step = (v: number) => Math.min(3, Math.max(0.5, Math.round(v * 2) / 2)); // 50%, 100%, 150% ... 300%
+  // the logo is the default print now; the old default (Cover) is replaced once
+  let art: InsertArt = INSERT_ART_IDS.indexOf(x.insertArt) >= 0 ? x.insertArt : DEFAULTS.insertArt;
+  if (sv < 3 && x.insertArt === "cover") art = "logo";
+  const oldWear = sv < 5 && x.playWear !== true && WEAR_IDS.indexOf(x.wear) >= 0 && x.wear !== "none";
+  const ins = step(n(x.insertSpeed, 0.5, 3, DEFAULTS.insertSpeed));
   return {
+    schema: SCHEMA,
     enabled: b(x.enabled, DEFAULTS.enabled),
     angle: n(x.angle, 0, 40, DEFAULTS.angle),
-    depth: n(x.depth, 6, 30, DEFAULTS.depth),
-    color: validId(fixId(x.color), customs) ? fixId(x.color) : DEFAULTS.color,
+    depth: DEFAULTS.depth, // (there is no slider for it any more: the thickness is Thin, Standard or Thick)
+    thickness: x.thickness === "thin" || x.thickness === "thick" ? x.thickness : "standard",
+    color,
     gloss: b(x.gloss, DEFAULTS.gloss),
     shadow: b(x.shadow, DEFAULTS.shadow),
     band: b(x.band, DEFAULTS.band),
+    bandFrame: b(x.bandFrame, DEFAULTS.bandFrame),
+    varyThickness: b(x.varyThickness, DEFAULTS.varyThickness),
     spineTitle: false, // the name on the spine was removed
     float: b(x.float, DEFAULTS.float),
     idleTilt: 0, // covers you are not on stay flat
-    autoGuess: b(x.autoGuess, DEFAULTS.autoGuess),
-    names: cleanNames(x.names),
     shape: SHAPE_IDS.indexOf(x.shape) >= 0 ? x.shape : "auto",
+    neighborLean: Math.round(n(x.neighborLean, 1, 30, DEFAULTS.neighborLean)),
+    nbPause: b(x.nbPause, DEFAULTS.nbPause),
+    insertSpeed: ins,
+    ejectSpeed: step(n(x.ejectSpeed, 0.5, 3, ins)), // earlier versions had one speed for both
+    insertArt: art,
     wear: WEAR_IDS.indexOf(x.wear) >= 0 ? x.wear : DEFAULTS.wear,
-    playWear: b(x.playWear, DEFAULTS.playWear),
+    // earlier versions: a default wear with Wear off meant "every case has this wear"; that is Wear on with Override now
+    playWear: oldWear ? true : b(x.playWear, DEFAULTS.playWear),
+    wearOverride: oldWear ? true : b(x.wearOverride, DEFAULTS.wearOverride),
     wearSpeed: x.wearSpeed === "slow" || x.wearSpeed === "fast" ? x.wearSpeed : "normal",
     insertAnim: b(x.insertAnim, DEFAULTS.insertAnim),
-    insertTarget: x.insertTarget === "handheld" || x.insertTarget === "console" ? x.insertTarget : "auto",
-    wears: cleanWears(x.wears),
-    gameWears: cleanWears(x.gameWears),
+    insertTarget: x.insertTarget === "console" ? "console" : "handheld", // (earlier versions also had "auto")
+    windowMode: x.windowMode === "match" ? "match" : x.windowMode === "white" ? "white" : "black", // (earlier versions called black "dark")
     fallback: x.fallback === "off" || x.fallback === "always" ? x.fallback : "auto",
     safeMode: b(x.safeMode, false),
     checkedOnce: b(x.checkedOnce, false),
     shine: b(x.shine, DEFAULTS.shine),
-    otherScreens: b(x.otherScreens, DEFAULTS.otherScreens),
     sleeve: b(x.sleeve, DEFAULTS.sleeve),
     pickup: b(x.pickup, DEFAULTS.pickup),
     neighbors: b(x.neighbors, DEFAULTS.neighbors),
@@ -379,65 +580,63 @@ export function sanitize(x: any): Settings {
     ejectAnim: b(x.ejectAnim, DEFAULTS.ejectAnim),
     lessMotion: x.lessMotion === "battery" || x.lessMotion === "always" ? x.lessMotion : "off",
     customs,
-    games: cleanMap(x.games, customs),
-    collections: cleanMap(x.collections, customs),
+    gameOv,
+    collOv,
   };
 }
 
 // ---------- which look does a game get? ----------
 
-export function guessStyle(collectionName: string, s?: Settings): StyleId | null {
-  const n = (collectionName || "").toLowerCase();
-  // a collection named after one of the (default or your own) console names gets that look
-  const names = NAMEABLE.map((id) => ({ id, nm: (s ? consoleName(s, id) : DEFAULT_NAMES[id]).trim().toLowerCase() }))
-    .filter((x) => x.nm.length >= 3).sort((a, b) => b.nm.length - a.nm.length);
-  for (const x of names) {
-    const esc = x.nm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    if (new RegExp("(^|[^a-z0-9])" + esc + "([^a-z0-9]|$)").test(n)) return x.id;
+/** What a game's own overrides and its collections' overrides add up to: for every setting, the game's own value if it has
+ *  one, else the first of its collections that has one. What is left out follows the global setting (and the preset). */
+export function ovFor(s: Settings, appid: string | null, collections: string[] = []): ItemOv {
+  const out: any = {};
+  const layers: (ItemOv | undefined)[] = [appid ? s.gameOv[appid] : undefined];
+  for (const c of collections) layers.push(s.collOv[c]);
+  for (const o of layers) {
+    if (!o) continue;
+    for (const k of OV_KEYS) if (out[k] === undefined && (o as any)[k] !== undefined) out[k] = (o as any)[k];
   }
-  if (/wii ?u/.test(n)) return "wee2";
-  if (/\bwii\b/.test(n)) return "wee";
-  if (/switch|nintendo|\bnx\b/.test(n)) return "red";
-  if (/dreamcast/.test(n)) return "dreamcast";
-  if (/sega|genesis|mega ?drive|master system|saturn/.test(n)) return "sega";
-  if (/game ?cube|\bgcn?\b/.test(n)) return "purple";
-  if (/xbox|x360/.test(n)) {
-    if (/360|x360/.test(n)) return "x360";
-    if (/original|\bog\b|classic/.test(n)) return "xbox";
-    return "green";
-  }
-  if (/\bps ?5\b|playstation ?5/.test(n)) return "ps5";
-  if (/\bps ?4\b|playstation ?4/.test(n)) return "ps4";
-  if (/\bps ?3\b|playstation ?3/.test(n)) return "ps3";
-  if (/\bps ?2\b|playstation ?2/.test(n)) return "ps2";
-  if (/\bps ?1\b|\bpsx\b|playstation ?1|\bps ?one\b/.test(n)) return "ps1";
-  if (/\bpsp\b|vita/.test(n)) return "psp";
-  if (/playstation|\bps\b/.test(n)) return "ps4";
-  if (/game ?boy|\bgba\b|\bgbc\b|\bds\b|3ds|\bsnes\b|\bnes\b|retro|n64|atari/.test(n)) return "grey";
-  return null;
+  return out as ItemOv;
 }
 
-export function resolveStyle(
-  s: Settings, appid: string | null, collections: string[], collectionName: (id: string) => string,
-): StyleId {
-  if (appid && s.games[appid]) return s.games[appid];
-  for (const c of collections) if (s.collections[c]) return s.collections[c];
-  if (s.autoGuess) {
-    for (const c of collections) {
-      const g = guessStyle(collectionName(c), s);
-      if (g) return g;
-    }
-  }
-  return s.color;
-}
-
-export function shapeFor(s: Settings, styleId: string): ShapeId {
-  if (s.shape !== "auto") return s.shape;
+/** The case and the disc or cartridge a preset brings along. */
+export function presetShape(s: Settings, styleId: string): ShapeId {
   if (styleId.indexOf("custom:") === 0) {
     const c = s.customs.filter((x) => "custom:" + x.id === styleId)[0];
     return c && c.shape !== "auto" ? c.shape : "keepcase";
   }
-  return STYLE_SHAPE[styleId] || "keepcase";
+  const d = presetDef(styleId);
+  return d ? d.shape : "keepcase";
+}
+
+/** What a preset prints on its disc or cartridge unless a game or collection says otherwise (null = the global setting). */
+export function presetArt(styleId: string): InsertArt | null {
+  const d = presetDef(styleId);
+  return d && d.art ? d.art : null;
+}
+
+/** Presets that come without a frame (the old cartridges): with Frame on Automatic they have none. */
+export function presetNoFrame(styleId: string): boolean {
+  const d = presetDef(styleId);
+  return !!(d && d.noFrame);
+}
+
+/** The disc or cartridge color a preset brings along (none = the console's own plastic). */
+export function presetMedia(s: Settings, styleId: string): HslColor | null {
+  if (styleId.indexOf("custom:") === 0) {
+    const c = s.customs.filter((x) => "custom:" + x.id === styleId)[0];
+    return c && c.media ? c.media : null;
+  }
+  const d = presetDef(styleId);
+  return d && d.media ? d.media : null;
+}
+
+// Order: the game's own shape, then its collection's shape, then the shape for all games, then the preset's own.
+export function shapeFor(s: Settings, styleId: string, ov: ItemOv): ShapeId {
+  if (ov.shape) return ov.shape;
+  if (s.shape !== "auto") return s.shape;
+  return presetShape(s, styleId);
 }
 
 export interface PlayInfo { minutes: number; last: number } // minutes played in total, last played (unix seconds, 0 = never)
@@ -456,11 +655,11 @@ export function playtimeWear(s: Settings, info: PlayInfo | null, nowSec?: number
   return "battered";
 }
 
-export function resolveWear(s: Settings, appid: string | null, collections: string[], info?: PlayInfo | null): WearId {
-  if (appid && s.gameWears[appid]) return s.gameWears[appid];        // a game's own wear wins over everything
-  for (const c of collections) if (s.wears[c]) return s.wears[c];   // a collection's own wear always wins
-  if (s.playWear) { const w = playtimeWear(s, info || null); if (w) return w; }
-  return s.wear;
+export function resolveWear(s: Settings, ov: ItemOv, info?: PlayInfo | null): WearId {
+  if (ov.wear) return ov.wear;                                        // a game's or a collection's own wear wins over everything
+  if (!s.playWear) return "none";            // Wear is off
+  if (s.wearOverride) return s.wear;         // everything has the wear chosen for it
+  return playtimeWear(s, info || null) || "none";
 }
 
 // Steam ids come in several shapes: small positive numbers, negative 32-bit numbers (non-Steam shortcuts) and
@@ -529,17 +728,34 @@ export function buildCss(s: Settings): string {
     ? `linear-gradient(112deg, rgba(255,255,255,.36) 0%, rgba(255,255,255,.10) 15%, rgba(255,255,255,0) 32%, rgba(255,255,255,0) 60%, rgba(255,255,255,.12) 72%, rgba(255,255,255,0) 73.5%),
        linear-gradient(180deg, rgba(255,255,255,.14) 0%, rgba(255,255,255,0) 22%),`
     : "";
-  const band = s.band
-    ? `linear-gradient(180deg, var(--c3d-band) 0, var(--c3d-band) 5.2%, rgba(0,0,0,.35) 5.2%, rgba(0,0,0,.35) calc(5.2% + 1px), transparent calc(5.2% + 1px)),`
-    : "";
+  // The band is a gradient layer held in --c3d-bandimg, set on each case (see setVars) so a game or a collection can have
+  // a band, or none, whatever the global "Color band on top" says; the global setting is the fallback.
+  const BAND_ON = `linear-gradient(180deg, var(--c3d-band) 0, var(--c3d-band) 5.2%, rgba(0,0,0,.35) 5.2%, rgba(0,0,0,.35) calc(5.2% + 1px), transparent calc(5.2% + 1px))`;
+  const BAND_OFF = `linear-gradient(rgba(0,0,0,0), rgba(0,0,0,0))`;
+  const BAND_FILL = `linear-gradient(var(--c3d-band), var(--c3d-band))`; // the band's color, flat (round the top corners)
+  const bandLayer = `var(--c3d-bandimg, ${s.band ? BAND_ON : BAND_OFF})`;
+  const band = `${bandLayer},`;
+  // Colored frame: instead of painting over the top of the picture, the picture is shrunk a little (kept at the bottom)
+  // and the frame color shows around it. It is switched on or off for each case (data-sanso-frame), so a collection or a game can differ from the global setting. object-view-box makes the picture's view bigger than the picture itself; the
+  // element's background shows in the extra space. 5.485% of the view above the picture = the band's 5.2% of the cover.
+  // Template frames keep their own window and are left alone.
+  const frame = `
+[data-sanso-case="box"][data-sanso-frame]:not([data-sanso-style^="tpl:"]) > img, img[data-sanso-case="img"][data-sanso-frame]:not([data-sanso-style^="tpl:"]) {
+  object-view-box: inset(-5.485% -2.743% 0 -2.743%); background-color: var(--c3d-frame, var(--c3d-band)) !important;
+}
+/* no band: the extra room at the top was only there for the band, so the frame becomes an even border all round and the art grows to fill it */
+[data-sanso-case="box"][data-sanso-frame][data-sanso-noband]:not([data-sanso-style^="tpl:"]) > img, img[data-sanso-case="img"][data-sanso-frame][data-sanso-noband]:not([data-sanso-style^="tpl:"]) {
+  object-view-box: inset(-2.743% -2.743% -2.743% -2.743%);
+}`;
   const idleShadow = s.shadow ? `box-shadow: 4px 6px 9px rgba(0,0,0,.45) !important;` : "";
   const popShadow = s.shadow
     ? `box-shadow: ${Math.round(d * 1.1)}px ${Math.round(d * 1.5)}px 28px rgba(0,0,0,.65), ${Math.round(d * 0.3)}px ${Math.round(d * 0.4)}px 8px rgba(0,0,0,.4) !important;`
     : "";
-  const imgIdle = s.shadow ? `box-shadow: calc(var(--c3d-d, ${d}px) * -.3) 0 0 0 var(--c3d-b), 4px 6px 9px rgba(0,0,0,.45) !important;` : `box-shadow: calc(var(--c3d-d, ${d}px) * -.3) 0 0 0 var(--c3d-b) !important;`;
+  const FSH = "inset 0 0 0 1000px var(--c3d-fsh, rgba(0,0,0,0))";
+  const imgIdle = s.shadow ? `box-shadow: calc(var(--c3d-d, ${d}px) * -.3) 0 0 0 var(--c3d-b), 4px 6px 9px rgba(0,0,0,.45), ${FSH} !important;` : `box-shadow: calc(var(--c3d-d, ${d}px) * -.3) 0 0 0 var(--c3d-b), ${FSH} !important;`;
   const imgPop = s.shadow
-    ? `box-shadow: calc(var(--c3d-d, ${d}px) * -1) 0 0 0 var(--c3d-b), ${Math.round(d * 1.1)}px ${Math.round(d * 1.5)}px 28px rgba(0,0,0,.65) !important;`
-    : `box-shadow: calc(var(--c3d-d, ${d}px) * -1) 0 0 0 var(--c3d-b) !important;`;
+    ? `box-shadow: calc(var(--c3d-d, ${d}px) * -1) 0 0 0 var(--c3d-b), ${Math.round(d * 1.1)}px ${Math.round(d * 1.5)}px 28px rgba(0,0,0,.65), ${FSH} !important;`
+    : `box-shadow: calc(var(--c3d-d, ${d}px) * -1) 0 0 0 var(--c3d-b), ${FSH} !important;`;
   const f = Math.min(1, Math.max(0.3, A / 32)); // keep the drift tiny and proportional
   const x = (v: number) => `${(v * f).toFixed(1)}px`;
   const floatKf = s.float
@@ -590,17 +806,39 @@ ${s.shine ? `${ACTC(' > [data-sanso-faces] > [data-f="shine"]', st, desc)} { ani
 @keyframes sanso-pick-i { 0% { rotate: 0 1 0 ${ANG}; translate: 0 8px 16px; } 45% { rotate: 0 1 0 ${Math.round(A * 0.35)}deg; translate: 0 -4px 70px; } 100% { rotate: 0 1 0 ${ANG}; translate: 0 8px 16px; } }
 ${P}[data-sanso-pick][data-sanso-own] { animation: sanso-pick .42s cubic-bezier(.3,.7,.3,1) both; z-index: 20 !important; }
 ${P}[data-sanso-pick]:not([data-sanso-own]) { animation: sanso-pick-i .42s cubic-bezier(.3,.7,.3,1) both; z-index: 20 !important; }` : "";
-  const LEAN = 9;
-  const NB = (sel: string, left: boolean) => `${sel} ${P}[data-sanso-own] { transform: perspective(1600px) translateZ(-6px) rotateY(${left ? LEAN : -LEAN}deg); transform-origin: ${left ? "0% 50%" : "100% 50%"} !important; }
-${sel} ${P}:not([data-sanso-own]) { rotate: 0 1 0 ${left ? LEAN : -LEAN}deg; translate: 0 0 -6px; transform-origin: ${left ? "0% 50%" : "100% 50%"} !important; }`;
-  const neighbors = s.neighbors ? `
-/* the games beside the one you are on lean away, like on a shelf */
-${NB("[data-sanso-cell]:hover + [data-sanso-cell]", false)}
-${NB("[data-sanso-cell]:has(+ [data-sanso-cell]:hover)", true)}
-${NB("[data-sanso-cell]:has(.gpfocus, :focus) + [data-sanso-cell]", false)}
-${NB("[data-sanso-cell]:has(+ [data-sanso-cell] :is(.gpfocus, :focus))", true)}
-${NB("[data-sanso-cell]:is(.gpfocus, :focus) + [data-sanso-cell]", false)}
-${NB("[data-sanso-cell]:has(+ [data-sanso-cell]:is(.gpfocus, :focus))", true)}` : "";
+  // Rounded corners all the way round. The front has a corner radius r; a real case's side does not stay straight up to the top
+  // but bends along that same corner into the top (and the bottom). So the spine, the right side, the top and the bottom stop r
+  // short of each corner, and a corner piece fills the gap: a quarter of a cylinder (axis from front to back), built from two flat
+  // strips, each as deep as the case. Corner "t" = top, "b" = bottom, "l" = left (spine side), "r" = right; strip 0 sits next to the
+  // side, strip 1 next to the top / bottom. Positions are fractions of r from the corner's arc, see the comments on `corner`.
+  const R = "var(--c3d-r, 2px)";
+  const KC = Math.cos(Math.PI / 8), CHORD = 2 * Math.sin(Math.PI / 8); // strip middle's distance from the arc's center, strip length (both x r)
+  const corner = (name: string, top: boolean, left: boolean, k: 0 | 1) => {
+    const th = (k === 0 ? 22.5 : 67.5) * Math.PI / 180;
+    const mx = 1 - KC * Math.cos(th), my = 1 - KC * Math.sin(th); // the strip's middle, from the corner's own edges, x r
+    const ang = (left === top ? 1 : -1) * (th * 180 / Math.PI);   // mirrored corners turn the other way
+    const x = left ? `calc(${R} * ${mx.toFixed(4)})` : `calc(100% - ${R} * ${mx.toFixed(4)})`;
+    const y = top ? `calc(${R} * ${(my - CHORD / 2).toFixed(4)})` : `calc(100% - ${R} * ${(my + CHORD / 2).toFixed(4)})`;
+    const fill = top ? `var(--c3d-bandfill, ${s.band ? BAND_FILL : BAND_OFF}), ` : ""; // the band's color continues round the top corners
+    return `[data-sanso-faces] > [data-f=\"${name}${k}\"] { left: ${x}; top: ${y}; width: var(--c3d-d, ${d}px); ${left ? "min-width: 12px; " : ""}height: calc(${R} * ${CHORD.toFixed(4)}); transform-origin: 0 50%; transform: rotateZ(${ang}deg) rotateY(90deg); background: ${fill}linear-gradient(90deg, var(--c3d-a), var(--c3d-b)); }`;
+  };
+  const corners = ["tl", "tr", "bl", "br"].map((n) => [corner(n, n[0] === "t", n[1] === "l", 0), corner(n, n[0] === "t", n[1] === "l", 1)].join("\n")).join("\n");
+  const LEAN = Math.round(Math.min(30, Math.max(1, s.neighborLean))); // degrees (Settings: "Lean of the neighbours")
+  // Same lean, keyed on data-sanso-nb ("l" = the game left of the one you are on, "r" = right of it). The engine sets it by
+  // position (see DocWatch.updateNeighbours), so it works however Steam nests the tiles and needs no :has().
+  // A game that has just lost focus goes straight from its turned-out pose into its lean: one move, no stop in between.
+  // While it swings, its box is still drawn, and a game on the right swings through flat and would show the box's other side,
+  // so its box is hidden at once (the cover alone does the turn). With "Settle flat first" (nbPause) it waits, flat, instead.
+  const NBA = (v: "l" | "r") => {
+    const left = v === "l";
+    return `${P}[data-sanso-nb="${v}"][data-sanso-own] { transform: perspective(1600px) translateZ(-6px) rotateY(${left ? LEAN : -LEAN}deg); transform-origin: ${left ? "0% 50%" : "100% 50%"} !important; }
+${P}[data-sanso-nb="${v}"]:not([data-sanso-own]) { rotate: 0 1 0 ${left ? LEAN : -LEAN}deg; translate: 0 0 -6px; transform-origin: ${left ? "0% 50%" : "100% 50%"} !important; }`;
+  };
+  const neighborsByPosition = s.neighbors ? `
+/* the games beside the one you are on lean away (marked by position) */
+${NBA("l")}
+${NBA("r")}${s.nbPause ? "" : `
+[data-sanso-nb] [data-sanso-faces] { display: none !important; transition: none !important; }`}` : "";
   return `
 ${floatKf}
 /* Steam's own perspective on a parent magnifies the tilted case (a strong one made it twice its size and blocky): use ours */
@@ -628,6 +866,7 @@ ${floatKf}
 [data-sanso-case="box"] img { border-radius: var(--c3d-r, 2px); }
 [data-sanso-case="box"][data-sanso-static] { position: relative !important; }
 img[data-sanso-case="img"] { border-radius: var(--c3d-r, 2px); ${imgIdle} }
+${frame}
 
 /* resting cover: one flat overlay, no extra elements */
 [data-sanso-case="box"]::after {
@@ -639,7 +878,8 @@ img[data-sanso-case="img"] { border-radius: var(--c3d-r, 2px); ${imgIdle} }
     ${band}
     ${s.sleeve ? `linear-gradient(90deg, transparent 3.2%, rgba(255,255,255,.34) 3.2%, rgba(255,255,255,.34) 3.9%, rgba(0,0,0,.30) 3.9%, rgba(0,0,0,.30) 5%, rgba(255,255,255,.06) 5%, transparent 9%),
     linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,0) 1.6%, rgba(255,255,255,0) 98.4%, rgba(0,0,0,.25)),` : ""}
-    linear-gradient(90deg, rgba(0,0,0,.42) 0, rgba(255,255,255,.22) 1.5%, rgba(0,0,0,.16) 3.2%, rgba(0,0,0,0) 7.5%);
+    linear-gradient(90deg, rgba(0,0,0,.42) 0, rgba(255,255,255,.22) 1.5%, rgba(0,0,0,.16) 3.2%, rgba(0,0,0,0) 7.5%),
+    var(--c3d-framelayers, linear-gradient(rgba(0,0,0,0), rgba(0,0,0,0)));
   box-shadow: inset 0 0 0 1px var(--c3d-line), inset 0 0 0 var(--c3d-rim, 0px) rgba(255,255,255,.5), inset 0 0 0 3px rgba(0,0,0,.18)${s.sleeve ? ", inset 0 0 0 4px rgba(255,255,255,.10), inset 0 0 0 5px rgba(0,0,0,.16)" : ""};
 }
 
@@ -648,10 +888,12 @@ img[data-sanso-case="img"] { border-radius: var(--c3d-r, 2px); ${imgIdle} }
 [data-sanso-faces] > div { position: absolute; box-sizing: border-box; }
 [data-sanso-faces] > [data-f="front"] { top: 0; right: 0; bottom: 0; left: 0; transform: translateZ(1px); border-radius: var(--c3d-r, 2px); }
 [data-sanso-faces] > [data-f="spine"] {
-  top: 0; bottom: 0; left: 0; width: var(--c3d-d, ${d}px); min-width: 12px; transform-origin: left center; transform: rotateY(90deg);
+  top: ${R}; bottom: ${R}; left: 0; width: var(--c3d-d, ${d}px); min-width: 12px; transform-origin: left center; transform: rotateY(90deg);
+  /* the spine stops r short of the top and bottom; its band is laid out as if the spine were the full height, so it lines up with the front's band */
   background:
-    linear-gradient(180deg, var(--c3d-band) 0, var(--c3d-band) 5.2%, rgba(0,0,0,.35) 5.2%, rgba(0,0,0,.35) calc(5.2% + 1px), transparent calc(5.2% + 1px)),
+    ${bandLayer},
     linear-gradient(90deg, var(--c3d-a), var(--c3d-b));
+  background-size: 100% calc(100% + ${R} * 2), 100% 100%; background-position: 0 calc(${R} * -1), 0 0; background-repeat: no-repeat;
   display: flex; align-items: center; justify-content: center; overflow: hidden;
 }
 [data-sanso-faces] > [data-f="spine"] > span {
@@ -659,16 +901,18 @@ img[data-sanso-case="img"] { border-radius: var(--c3d-r, 2px); ${imgIdle} }
   max-height: 86%; margin-top: 8%; font-weight: 800; font-family: sans-serif; line-height: 1; font-size: max(9px, calc(var(--c3d-d, ${d}px) * .8)); color: var(--c3d-text);
   transform: scaleX(-1); letter-spacing: .05em; text-shadow: 0 0 2px rgba(0,0,0,.75), 0 1px 1px rgba(0,0,0,.6);
 }
-[data-sanso-faces] > [data-f="top"] { top: 0; left: 0; right: 0; height: var(--c3d-d, ${d}px); transform-origin: center top; transform: rotateX(-90deg); background: linear-gradient(0deg, var(--c3d-b), var(--c3d-a)); }
-[data-sanso-faces] > [data-f="bottom"] { bottom: 0; left: 0; right: 0; height: var(--c3d-d, ${d}px); transform-origin: center bottom; transform: rotateX(90deg); background: linear-gradient(180deg, var(--c3d-b), #000); }
-[data-sanso-faces] > [data-f="right"] { top: 0; bottom: 0; right: 0; width: var(--c3d-d, ${d}px); transform-origin: right center; transform: rotateY(-90deg); background: linear-gradient(270deg, var(--c3d-b), var(--c3d-a)); }
-[data-sanso-faces] > [data-f="back"] { top: 0; right: 0; bottom: 0; left: 0; transform: translateZ(calc(var(--c3d-d, ${d}px) * -1)) rotateY(180deg); backface-visibility: hidden; -webkit-backface-visibility: hidden; background: var(--c3d-b); }
+[data-sanso-faces] > [data-f="top"] { top: 0; left: ${R}; right: ${R}; height: var(--c3d-d, ${d}px); transform-origin: center top; transform: rotateX(-90deg); background: linear-gradient(0deg, var(--c3d-b), var(--c3d-a)); }
+[data-sanso-faces] > [data-f="bottom"] { bottom: 0; left: ${R}; right: ${R}; height: var(--c3d-d, ${d}px); transform-origin: center bottom; transform: rotateX(90deg); background: linear-gradient(180deg, var(--c3d-b), #000); }
+[data-sanso-faces] > [data-f="right"] { top: ${R}; bottom: ${R}; right: 0; width: var(--c3d-d, ${d}px); transform-origin: right center; transform: rotateY(-90deg); background: linear-gradient(270deg, var(--c3d-b), var(--c3d-a)); }
+[data-sanso-faces] > [data-f="back"] { top: 0; right: 0; bottom: 0; left: 0; border-radius: ${R}; transform: translateZ(calc(var(--c3d-d, ${d}px) * -1)) rotateY(180deg); backface-visibility: hidden; -webkit-backface-visibility: hidden; background: var(--c3d-b); }
+/* the corners of the box: the side bends into the top and bottom along the front's corner */
+${corners}
 ${shine}
 
 /* the game you are on: bigger tilt, lifts toward you, full box appears */
 ${active(STATE, true)}
+${neighborsByPosition}
 @supports selector(:has(*)) {
-${neighbors}
 ${active(HAS, false)}
 }
 ${pick}
@@ -693,6 +937,8 @@ export interface Provider {
   playInfo: (key: string) => PlayInfo | null;
   /** the game's portrait cover art addresses, best first (optional) */
   artUrls?: (key: string) => string[];
+  /** the route a window shows (/library/app/<id> on a game's page), as Steam's own router has it; "" when unknown */
+  pagePath?: (doc: Document) => string;
 }
 
 // Cover test with no layout reads: portrait artwork (about 2:3, tolerant of 3:4) that is big enough for a capsule.
@@ -721,26 +967,54 @@ export function resolveAppId(img: HTMLImageElement, prov: Provider): { key: stri
   return { key: null, how: "none" };
 }
 
-function setVars(el: HTMLElement, p: Pal, id: string, depthPx: number, radius: number, rim: number, wear: WearId): void {
+/** The frame's strips as background layers for the cover's overlay: the strip above the art (as tall as the room the band needs, or an even
+ *  border when there is no band), and the sides (and the bottom, with no band). Percentages are those of the shrunk art (see the frame rule). */
+export function frameLayers(on: boolean, band: boolean): string {
+  const FR = "linear-gradient(var(--c3d-frame), var(--c3d-frame))";
+  if (!on) return "linear-gradient(rgba(0,0,0,0), rgba(0,0,0,0))";
+  return band
+    ? `${FR} 0 0 / 100% 5.485% no-repeat, ${FR} 0 0 / 2.743% 100% no-repeat, ${FR} 100% 0 / 2.743% 100% no-repeat`
+    : `${FR} 0 0 / 100% 2.743% no-repeat, ${FR} 0 100% / 100% 2.743% no-repeat, ${FR} 0 0 / 2.743% 100% no-repeat, ${FR} 100% 0 / 2.743% 100% no-repeat`;
+}
+
+function setVars(el: HTMLElement, p: Pal, id: string, depthPx: number, radius: number, rim: number, wear: WearId, band: boolean, frame: boolean): void {
   el.style.setProperty("--c3d-a", p.a);
   el.style.setProperty("--c3d-b", p.b);
   el.style.setProperty("--c3d-band", p.band);
+  el.style.setProperty("--c3d-frame", p.frame || p.band);
   el.style.setProperty("--c3d-text", p.text);
   el.style.setProperty("--c3d-line", p.line);
   el.style.setProperty("--c3d-d", `${depthPx}px`);
   el.style.setProperty("--c3d-r", `${radius}px`);
   el.style.setProperty("--c3d-rim", `${rim}px`);
   el.style.setProperty("--c3d-wear", WEAR_CSS[wear]);
+  // the color band: a layer of its own per case (none = a clear layer); "noband" also switches off the band-as-frame
+  el.style.setProperty("--c3d-bandimg", band
+    ? "linear-gradient(180deg, var(--c3d-band) 0, var(--c3d-band) 5.2%, rgba(0,0,0,.35) 5.2%, rgba(0,0,0,.35) calc(5.2% + 1px), transparent calc(5.2% + 1px))"
+    : "linear-gradient(rgba(0,0,0,0), rgba(0,0,0,0))");
+  el.style.setProperty("--c3d-bandfill", band ? "linear-gradient(var(--c3d-band), var(--c3d-band))" : "linear-gradient(rgba(0,0,0,0), rgba(0,0,0,0))");
+  if (band) el.removeAttribute("data-sanso-noband"); else el.setAttribute("data-sanso-noband", "1");
+  // the colored frame (the art shrunk a little, framed in the frame color), on or off for this case; it does not depend on the band
+  if (frame) el.setAttribute("data-sanso-frame", "1"); else el.removeAttribute("data-sanso-frame");
+  // The frame's color is painted twice. The picture's own background shows in the room the shrunk picture leaves, but the browser leaves that
+  // background out for some pictures (an opaque image is taken to cover the whole box, which it no longer does), and the frame then
+  // seemed missing, depending on the art. So the cover's overlay (which is always drawn) paints the frame strips as well, and a simple
+  // cover gets an inset shadow of the same color.
+  const frameOn = frame && id.indexOf(TPL_PREFIX) !== 0;
+  el.style.setProperty("--c3d-framelayers", frameLayers(frameOn, band));
+  el.style.setProperty("--c3d-fsh", frameOn ? "var(--c3d-frame)" : "rgba(0,0,0,0)");
   el.setAttribute("data-sanso-style", id);
   el.setAttribute("data-sanso-wear", wear);
 }
 
-const VAR_NAMES = ["--c3d-a", "--c3d-b", "--c3d-band", "--c3d-text", "--c3d-line", "--c3d-d", "--c3d-r", "--c3d-rim", "--c3d-wear"];
+const VAR_NAMES = ["--c3d-a", "--c3d-b", "--c3d-band", "--c3d-frame", "--c3d-text", "--c3d-line", "--c3d-d", "--c3d-r", "--c3d-rim", "--c3d-wear", "--c3d-bandimg", "--c3d-bandfill", "--c3d-framelayers", "--c3d-fsh"];
 
 function clearVars(el: HTMLElement): void {
   VAR_NAMES.forEach((v) => el.style.removeProperty(v));
   el.removeAttribute("data-sanso-style");
   el.removeAttribute("data-sanso-wear");
+  el.removeAttribute("data-sanso-noband");
+  el.removeAttribute("data-sanso-frame");
 }
 
 function ensureFaces(doc: Document, box: HTMLElement, title: string): void {
@@ -750,7 +1024,7 @@ function ensureFaces(doc: Document, box: HTMLElement, title: string): void {
     faces.setAttribute("data-sanso-faces", "1");
     box.appendChild(faces);
   }
-  ["back", "bottom", "top", "right", "spine", "front", "shine"].forEach((f) => {
+  ["back", "bottom", "top", "right", "spine", "tl0", "tl1", "tr0", "tr1", "bl0", "bl1", "br0", "br1", "front", "shine"].forEach((f) => {
     if (faces!.querySelector(`:scope > [data-f="${f}"]`)) return;
     const c = doc.createElement("div");
     c.setAttribute("data-f", f);
@@ -779,7 +1053,7 @@ function untag(el: HTMLElement): void {
       if (st) st.removeAttribute("data-sanso-stage");
       let q: HTMLElement | null = st;
       for (let j = 0; q && j < 6; j++, q = q.parentElement) { q.removeAttribute("data-sanso-focus"); q.removeAttribute("data-sanso-cell"); }
-      e.removeAttribute("data-sanso-cell"); e.removeAttribute("data-sanso-pick"); e.style.removeProperty("--c3d-r");
+      e.removeAttribute("data-sanso-cell"); e.removeAttribute("data-sanso-nb"); e.removeAttribute("data-sanso-pick"); e.style.removeProperty("--c3d-r");
       break;
     }
     e.removeAttribute("data-sanso-link");
@@ -788,9 +1062,9 @@ function untag(el: HTMLElement): void {
 
 export function clearAll(doc: Document): void {
   doc.querySelectorAll("[data-sanso-faces],[data-sanso-tpl]").forEach((el) => el.remove());
-  doc.querySelectorAll("[data-sanso-case],[data-sanso-pop],[data-sanso-link],[data-sanso-focus],[data-sanso-cell],[data-sanso-pick],[data-sanso-stage],[data-sanso-persp],[data-sanso-static],[data-sanso-style],[data-sanso-app]").forEach((el) => {
+  doc.querySelectorAll("[data-sanso-case],[data-sanso-pop],[data-sanso-link],[data-sanso-focus],[data-sanso-cell],[data-sanso-nb],[data-sanso-pick],[data-sanso-stage],[data-sanso-persp],[data-sanso-static],[data-sanso-style],[data-sanso-app]").forEach((el) => {
     const h = el as HTMLElement;
-    ["data-sanso-case", "data-sanso-stage", "data-sanso-static", "data-sanso-app", "data-sanso-pop", "data-sanso-pstatic", "data-sanso-own", "data-sanso-link", "data-sanso-focus", "data-sanso-cell", "data-sanso-pick", "data-sanso-persp"].forEach((a) => h.removeAttribute(a));
+    ["data-sanso-case", "data-sanso-stage", "data-sanso-static", "data-sanso-app", "data-sanso-pop", "data-sanso-pstatic", "data-sanso-own", "data-sanso-link", "data-sanso-focus", "data-sanso-cell", "data-sanso-nb", "data-sanso-pick", "data-sanso-persp"].forEach((a) => h.removeAttribute(a));
     clearVars(h);
   });
   const st = doc.getElementById(STYLE_ID);
@@ -807,15 +1081,55 @@ function ensureStyle(doc: Document, css: string): void {
   if (st.textContent !== css) st.textContent = css;
 }
 
-// Home recent games and the game page are "other screens"; they only get cases when that option is on.
+// the path of the page a window is showing (used to leave the SteamGridDB plugin's own pages alone)
 export function screenPath(doc: Document): string {
   try { return (doc.defaultView && doc.defaultView.location && doc.defaultView.location.pathname) || ""; } catch (e) { return ""; }
 }
-export function screenAllowed(doc: Document, s: Settings): boolean {
-  if (s.otherScreens) return true;
-  const p = screenPath(doc);
-  if (/\/library\/home\b/.test(p) || /\/library\/app\/\d/.test(p)) return false;
-  return true; // unknown paths count as the library grid
+// Pictures that are never turned into cases, whatever the settings: the SteamGridDB plugin's artwork picker shows every
+// cover in SteamGridDB's catalog, and those are candidates for a game's cover, not covers of games in your library.
+// Recognised by where the picture comes from (steamgriddb.com) or by a SteamGridDB name on the page around it.
+const FOREIGN_ART_SRC = /steamgriddb/i;
+const FOREIGN_ART_NAME = /steamgriddb|(^|[\s_-])sgdb([\s_-]|$)/i; // ("sgdb" only as a whole word: Steam's scrambled class names must never match by chance)
+export function isForeignArt(img: HTMLImageElement, deep: boolean): boolean {
+  try {
+    if (FOREIGN_ART_SRC.test(img.currentSrc || img.src || "")) return true;
+    if (!deep) return false;
+    let e: Element | null = img;
+    for (let i = 0; e && i < 14; i++, e = e.parentElement) {
+      const cls = typeof (e as HTMLElement).className === "string" ? (e as HTMLElement).className : "";
+      if ((cls && FOREIGN_ART_NAME.test(cls)) || FOREIGN_ART_NAME.test(e.id || "")) return true;
+    }
+  } catch (err) { /* ignore */ }
+  return false;
+}
+/** The game whose page a window shows (Steam's game page, /library/app/<id>) as an unsigned app id; "" on any other screen. */
+export function gamePageKey(doc: Document, prov?: Provider): string {
+  const paths = [screenPath(doc)];
+  try { const q = prov && prov.pagePath ? prov.pagePath(doc) : ""; if (q) paths.push(q); } catch (e) { /* the window's own address is enough */ }
+  for (const pa of paths) {
+    const m = /\/library\/app\/(-?\d+)/.exec(pa);
+    if (m) return normId(m[1]) || m[1];
+  }
+  return "";
+}
+/** Is the picture showing on screen (not in a page that stays mounted behind the one you are on)? */
+function shownOnScreen(img: HTMLImageElement): boolean {
+  try { const r = img.getBoundingClientRect(); return r.width > 20 && r.height > 20; } catch (e) { return false; }
+}
+/** Does the cover stand among other covers (a shelf or a grid of games)? Covers that do are other games' tiles; one that stands alone is a page's own cover. */
+function amongCovers(img: HTMLImageElement): boolean {
+  let e: HTMLElement | null = img.parentElement;
+  for (let i = 0; e && i < 8 && e !== e.ownerDocument.body; i++, e = e.parentElement) {
+    const list = e.getElementsByTagName("img");
+    let n = 0;
+    for (let k = 0; k < list.length && k < 60; k++) if (isPortraitCover(list[k]) && shownOnScreen(list[k])) n++;
+    if (n >= 3) return true;
+  }
+  return false;
+}
+export function screenAllowed(doc: Document, _s: Settings): boolean {
+  // every library screen: the grids, Home and the game page. Only the SteamGridDB plugin's own pages are left alone.
+  return !/steamgriddb|\/sgdb(\/|$)/i.test(screenPath(doc));
 }
 
 // ---------- engine: event driven, incremental, time-sliced ----------
@@ -961,18 +1275,57 @@ export const OWNER_ATTR = "data-sanso-owner";
 const BATCH = 24;          // images per slice
 const DISCOVER_MS = 3000;  // cheap check for new/closed Steam windows and screen changes (no page scan)
 
-export interface Look { style: StyleId; pal: Pal; shapeId: ShapeId; shape: { depth: number; radius: number; rim: number }; depthPx: number; wear: WearId }
+export interface Look {
+  style: StyleId; pal: Pal; shapeId: ShapeId; shape: { depth: number; radius: number; rim: number };
+  depthPx: number; dfac: number; thick: number;     // box thickness: the Case thickness setting x dfac (the shape's own factor, or 1 = DVD case) x thick
+  wear: WearId; media: HslColor | null;             // color of the disc or cartridge (null = the console's own plastic)
+  art: InsertArt; window: HslColor | null;          // what is printed on it, and the color of a cartridge's art window (null = follow windowMode)
+  logoPos: LogoPos; artY: number;                   // where the logo sits on a disc; how far the cover is moved (Cover (Fill))
+  windowMode: "black" | "white" | "match"; slot: "handheld" | "console"; when: "before" | "after";
+  off: boolean; band: boolean; frame: boolean; insert: boolean; eject: boolean;
+}
 
-// everything that decides how one game's case looks
-export function lookFor(s: Settings, prov: Provider, appid: string | null): Look {
-  const colls = appid ? prov.collectionsOf(appid) : [];
-  const style = resolveStyle(s, appid, colls, prov.collectionName);
-  const shapeId = shapeFor(s, style);
+// How thick a case is relative to a DVD case: its shape's own factor (the retro cartridges are thick, the Switch card is thin),
+// or 1 when every case is meant to be as thick as a DVD case (the global "Varying box thickness" switch, or a collection's or a game's own).
+/** Thin, Standard or Thick, for a thickness factor. */
+export function thicknessName(dfac: number): "Thin" | "Standard" | "Thick" { return dfac < 0.9 ? "Thin" : dfac > 1.1 ? "Thick" : "Standard"; }
+
+export function thicknessFactor(s: Settings, ov: ItemOv, shapeId: ShapeId): number {
+  const of = (m: "thin" | "standard" | "thick") => (m === "thin" ? THINNEST : m === "thick" ? THICKEST : DVD_CASE);
+  const mode = ov.thickMode || (s.varyThickness ? "varied" : s.thickness);
+  if (mode !== "varied") return of(mode);
+  // the preset's own thickness; a preset with none of its own (a DVD-case thickness) takes the default box thickness
+  const own = SHAPES[shapeId].depth;
+  return own === DVD_CASE ? of(s.thickness) : own;
+}
+
+// everything that decides how one game's case looks. Settings that a game or a collection decides for itself win over the global
+// settings; the global settings (colored bands, colored frames, box thickness, animations) win over what a preset brings along.
+export function lookForIds(s: Settings, appid: string | null, colls: string[], info: PlayInfo | null = null): Look {
+  const ov = ovFor(s, appid, colls);
+  const style = ov.preset || s.color;
+  const shapeId = shapeFor(s, style, ov);
   const base = SHAPES[shapeId];
   // with the sleeve, real keepcase corners: rounder plastic, the jewel case stays sharp
   const shape = s.sleeve ? { ...base, radius: SLEEVE_R[shapeId] } : base;
-  const info = s.playWear && appid ? prov.playInfo(appid) : null;
-  return { style, pal: paletteFor(s, style), shapeId, shape, depthPx: Math.max(3, Math.round(s.depth * shape.depth)), wear: resolveWear(s, appid, colls, info) };
+  const dfac = thicknessFactor(s, ov, shapeId);
+  const thick = typeof ov.thick === "number" ? ov.thick : 1;
+  return {
+    style, pal: paletteFor(s, style, ov), shapeId, shape,
+    depthPx: Math.max(3, Math.round(s.depth * dfac * thick)), dfac, thick,
+    wear: resolveWear(s, ov, info), media: ov.media || presetMedia(s, style),
+    art: ov.art || presetArt(style) || s.insertArt, logoPos: ov.logoPos || "top", artY: typeof ov.artY === "number" ? ov.artY : 0, window: ov.window || null, windowMode: ov.windowMode || s.windowMode, slot: ov.slot || s.insertTarget, when: ov.when || s.insertWhen,
+    off: ov.off === true,
+    band: typeof ov.band === "boolean" ? ov.band : s.band,
+    frame: typeof ov.frame === "boolean" ? ov.frame : (presetNoFrame(style) ? false : s.bandFrame), // a preset can come without a frame; frames switched on for a game or collection still win
+    insert: typeof ov.insert === "boolean" ? ov.insert : s.insertAnim,
+    eject: typeof ov.eject === "boolean" ? ov.eject : s.ejectAnim,
+  };
+}
+
+export function lookFor(s: Settings, prov: Provider, appid: string | null): Look {
+  const colls = appid ? prov.collectionsOf(appid) : [];
+  return lookForIds(s, appid, colls, s.playWear && !s.wearOverride && appid ? prov.playInfo(appid) : null);
 }
 
 class DocWatch {
@@ -981,11 +1334,19 @@ class DocWatch {
   queue = new Set<HTMLImageElement>();
   tracked = new Map<HTMLImageElement, Tracked>();
   decoys = new Set<HTMLImageElement>();
+  plain = new Set<HTMLImageElement>();   // a game page's own cover (its Game Info tab): shown as Steam draws it, without the case
+  offImgs = new Set<HTMLImageElement>(); // covers left alone because 3D is switched off for their game or collection
   timer: any = null;
   lastOk: boolean | null = null;
+  lastPage = "";                          // the game page the window showed at the last check ("" = none)
   onLoad: (e: Event) => void;
   onPick: (e: Event) => void;
   onVis: () => void;
+  onNb: () => void;
+  nbRaf: any = null;
+  nbLast: HTMLElement | null = null;           // the case that was focused at the last check
+  nbHold = new Map<HTMLElement, number>();     // cases that just lost focus -> time (ms) from which they may lean ("Settle flat first")
+  nbTimer: any = null;
   constructor(doc: Document, public eng: Engine) {
     this.doc = doc;
     this.obs = new MutationObserver((recs) => this.onMutations(recs));
@@ -1012,6 +1373,12 @@ class DocWatch {
         });
       } catch (err) { /* never block Steam */ }
     };
+    // leaning neighbours: re-checked when the focus or the pointer moves (once per frame at most)
+    this.onNb = () => {
+      if (this.nbRaf !== null) return;
+      this.nbRaf = requestAnimationFrame(() => { this.nbRaf = null; this.updateNeighbours(); });
+    };
+    for (const ev of ["focusin", "focusout", "mouseover", "mouseout"]) doc.addEventListener(ev, this.onNb, true);
     doc.addEventListener("vgp_onok", this.onPick, true);
     doc.addEventListener("click", this.onPick, true);
     doc.addEventListener("load", this.onLoad, true);
@@ -1052,7 +1419,10 @@ class DocWatch {
   // cheap: looks at the address only; scans the page again only when the screen changes between allowed / not allowed
   checkPath(force?: boolean): void {
     const ok = screenAllowed(this.doc, this.eng.settings);
-    if (!force && ok === this.lastOk) return;
+    // a game's page opened or closed: the covers are looked at again (its own cover is shown plain, the others are cases)
+    const page = gamePageKey(this.doc, this.eng.prov), pageMoved = page !== this.lastPage;
+    this.lastPage = page;
+    if (!force && ok === this.lastOk) { if (pageMoved && ok && this.lastOk !== null) this.scanAll(); return; }
     const first = this.lastOk === null;
     this.lastOk = ok;
     if (ok && !first && this.eng.settings.playWear) this.restyle();
@@ -1064,6 +1434,8 @@ class DocWatch {
     try {
       this.tracked.forEach((tr) => untag(tr.target));
       this.tracked.clear();
+      this.offImgs.clear();
+      this.plain.clear();
       this.queue.clear();
       this.obs.takeRecords();
     } finally { this.observe(); }
@@ -1099,14 +1471,27 @@ class DocWatch {
     const s = this.eng.settings;
     const view = this.doc.defaultView;
     const allowed = screenAllowed(this.doc, s);
+    const pageKey = gamePageKey(this.doc, this.eng.prov);
+    // On a game's own page (the Game Info tab) that game's cover is left exactly as Steam draws it: no case, band, frame or wear.
+    // It is the game's own cover, or one that stands alone; covers in a shelf or grid are other games and stay cases.
+    const isPageCover = (img: HTMLImageElement): boolean => {
+      const pk = resolveAppId(img, this.eng.prov).key;
+      return pk === pageKey || !amongCovers(img);
+    };
     const fresh: { img: HTMLImageElement; mode: "box" | "img"; makeStatic: boolean; lift: number; big: boolean; popStatic: boolean; own: boolean; w: number; flift: number; clift: number }[] = [];
     const body = this.doc.body;
     for (const img of batch) {
       this.eng.stats.imagesChecked++;
       const old = this.tracked.get(img);
-      if (!s.enabled || !allowed || !img.isConnected || !isPortraitCover(img) || (!old && (isDecoy(img, view) || isTwinDecoy(img)))) {
-        if (!old && img.isConnected && isPortraitCover(img)) this.decoys.add(img);
+      const foreign = img.isConnected && isForeignArt(img, !old); // e.g. the SteamGridDB artwork picker: left exactly as it is
+      if (!s.enabled || !allowed || !img.isConnected || foreign || !isPortraitCover(img) || (!old && (isDecoy(img, view) || isTwinDecoy(img)))) {
+        if (!old && !foreign && img.isConnected && isPortraitCover(img)) this.decoys.add(img);
         if (old) { untag(old.target); this.tracked.delete(img); }
+        continue;
+      }
+      if (old && pageKey && shownOnScreen(img) && isPageCover(img)) {
+        // it was made a case before the game page was known to be showing: released (a cover in a page behind this one is not on screen, and stays)
+        untag(old.target); this.tracked.delete(img); this.plain.add(img);
         continue;
       }
       if (old) {
@@ -1116,6 +1501,7 @@ class DocWatch {
         else if (old.mode === "box" && old.target.hasAttribute("data-sanso-style")) this.syncTemplate(old, old.target.getAttribute("data-sanso-style") || "");
         continue;
       }
+      if (pageKey && isPageCover(img)) { this.plain.add(img); continue; }
       // the extra copy of this cover in the same tile: never part of the case, and if it was tagged before the real
       // cover showed up, it is released again
       let decoy: HTMLElement | null = null;
@@ -1196,6 +1582,7 @@ class DocWatch {
       const img = f.img;
       const target: HTMLElement = f.mode === "box" ? (img.parentElement as HTMLElement) : img;
       const r = resolveAppId(img, this.eng.prov);
+      if (r.key && ovFor(s, r.key, this.eng.prov.collectionsOf(r.key)).off === true) { this.offImgs.add(img); continue; }
       target.setAttribute("data-sanso-case", f.mode);
       if (f.makeStatic) target.setAttribute("data-sanso-static", "1");
       let pop: HTMLElement = target;
@@ -1225,11 +1612,12 @@ class DocWatch {
   paint(tr: Tracked): void {
     const s = this.eng.settings, prov = this.eng.prov;
     const lk = lookFor(s, prov, tr.appid);
+    if (lk.off) { untag(tr.target); this.tracked.delete(tr.img); this.offImgs.add(tr.img); return; } // switched off for this game or collection
     // thickness follows the cover's size, so it looks the same on a small and on a big cover
-    if (tr.w && tr.w > 40) lk.depthPx = Math.max(4, Math.round(tr.w * 0.0075 * s.depth * lk.shape.depth));
-    const sig = [lk.style, lk.pal.a, lk.pal.b, lk.pal.band, lk.depthPx, lk.shape.radius, lk.shape.rim, lk.wear].join("|");
+    if (tr.w && tr.w > 40) lk.depthPx = Math.max(4, Math.round(tr.w * 0.0075 * s.depth * lk.dfac * lk.thick));
+    const sig = [lk.style, lk.pal.a, lk.pal.b, lk.pal.band, lk.pal.frame, lk.depthPx, lk.shape.radius, lk.shape.rim, lk.wear, lk.band, lk.frame].join("|");
     if (tr.sig !== sig) {
-      setVars(tr.target, lk.pal, lk.style, lk.depthPx, lk.shape.radius, lk.shape.rim, lk.wear); tr.sig = sig;
+      setVars(tr.target, lk.pal, lk.style, lk.depthPx, lk.shape.radius, lk.shape.rim, lk.wear, lk.band, lk.frame); tr.sig = sig;
       if (tr.pop && tr.pop !== tr.target) tr.pop.style.setProperty("--c3d-r", `${lk.shape.radius}px`);
     }
     if (tr.pop) {
@@ -1259,6 +1647,7 @@ class DocWatch {
   prune(): void {
     this.tracked.forEach((_tr, img) => { if (!img.isConnected) this.tracked.delete(img); });
     this.decoys.forEach((img) => { if (!img.isConnected) this.decoys.delete(img); });
+    this.plain.forEach((img) => { if (!img.isConnected) this.plain.delete(img); });
   }
   // settings changed: restyle what is already tracked, no page scan
   restyle(): void {
@@ -1267,12 +1656,86 @@ class DocWatch {
       this.prune();
       ensureStyle(this.doc, buildCss(this.eng.settings));
       this.tracked.forEach((tr) => this.paint(tr));
+      // covers that were switched off: look at them again (they may be on now)
+      if (this.offImgs.size) {
+        const back = Array.from(this.offImgs); this.offImgs.clear();
+        back.forEach((im) => { if (im.isConnected) this.queue.add(im); });
+        this.schedule();
+      }
       this.obs.takeRecords();
     } finally { this.observe(); }
+  }
+  /** The case you are on: the focused one (gamepad or keyboard), else the one under the pointer. */
+  focusedPop(): HTMLElement | null {
+    const d = this.doc;
+    const q = (sel: string) => d.querySelector(sel) as HTMLElement | null;
+    const viaFocus = (el: Element | null): HTMLElement | null => {
+      if (!el) return null;
+      const own = el.closest("[data-sanso-pop]") as HTMLElement | null;
+      if (own) return own;
+      const f = el.closest("[data-sanso-focus]");
+      return f ? (f.querySelector("[data-sanso-pop]") as HTMLElement | null) : null;
+    };
+    return q("[data-sanso-pop].gpfocus") || q("[data-sanso-pop]:focus") || viaFocus(q(".gpfocus")) || viaFocus(d.activeElement)
+      || q("[data-sanso-pop]:hover");
+  }
+  /** Marks the cases right beside the one you are on (data-sanso-nb = "l" / "r") so the CSS can lean them away.
+   *  It goes by position, not by DOM siblings, so it works however Steam nests the tiles. */
+  updateNeighbours(): void {
+    try {
+      const d = this.doc, s = this.eng.settings;
+      const want = new Map<HTMLElement, string>();
+      const cur = s.enabled && s.neighbors && !this.eng.sleeping ? this.focusedPop() : null;
+      if (cur) {
+        // the smallest ancestor that holds a row of games
+        let root: HTMLElement | null = cur.parentElement, pops: HTMLElement[] = [];
+        for (let i = 0; root && root !== d.body && i < 8; i++, root = root.parentElement) {
+          pops = Array.prototype.slice.call(root.querySelectorAll("[data-sanso-pop]"), 0, 400);
+          if (pops.length >= 2) break;
+        }
+        const fr = cur.getBoundingClientRect();
+        if (pops.length >= 2 && fr.width > 0 && fr.height > 0) {
+          const fx = fr.left + fr.width / 2, fy = fr.top + fr.height / 2;
+          let left: HTMLElement | null = null, right: HTMLElement | null = null, ld = Infinity, rd = Infinity;
+          for (const p of pops) {
+            if (p === cur || p.contains(cur) || cur.contains(p)) continue;
+            const r = p.getBoundingClientRect();
+            if (r.width <= 0 || r.height <= 0) continue;
+            const cy = r.top + r.height / 2, dx = r.left + r.width / 2 - fx;
+            if (Math.abs(cy - fy) > fr.height * 0.6) continue; // another row
+            if (dx < -fr.width * 0.25 && -dx < ld) { ld = -dx; left = p; }
+            else if (dx > fr.width * 0.25 && dx < rd) { rd = dx; right = p; }
+          }
+          if (left) want.set(left, "l");
+          if (right) want.set(right, "r");
+        }
+      }
+      if (s.nbPause) {
+        // the case you just left settles flat first (its box turns back and disappears after the turn-back time), then leans
+        const now = Date.now();
+        if (this.nbLast && this.nbLast !== cur && this.nbLast.isConnected) {
+          const T = s.speed === "calm" ? 0.8 : s.speed === "snappy" ? 0.28 : 0.5;
+          this.nbHold.set(this.nbLast, now + T * 1000 + 80);
+        }
+        this.nbLast = cur;
+        let wake = 0;
+        this.nbHold.forEach((until, e) => {
+          if (until <= now || !e.isConnected) this.nbHold.delete(e);
+          else if (want.has(e)) { want.delete(e); wake = Math.max(wake, until); }
+        });
+        clearTimeout(this.nbTimer); this.nbTimer = null;
+        if (wake) this.nbTimer = setTimeout(() => { this.nbTimer = null; this.updateNeighbours(); }, wake - now + 20);
+      } else { this.nbHold.clear(); this.nbLast = null; }
+      d.querySelectorAll("[data-sanso-nb]").forEach((e) => { if (want.get(e as HTMLElement) !== e.getAttribute("data-sanso-nb")) e.removeAttribute("data-sanso-nb"); });
+      want.forEach((v, e) => { if (e.getAttribute("data-sanso-nb") !== v) e.setAttribute("data-sanso-nb", v); });
+    } catch (e) { /* never block Steam */ }
   }
   destroy(): void {
     this.obs.disconnect();
     clearTimeout(this.timer);
+    if (this.nbRaf !== null) { try { cancelAnimationFrame(this.nbRaf); } catch (e) { /* ignore */ } this.nbRaf = null; }
+    clearTimeout(this.nbTimer); this.nbTimer = null; this.nbHold.clear(); this.nbLast = null;
+    for (const ev of ["focusin", "focusout", "mouseover", "mouseout"]) this.doc.removeEventListener(ev, this.onNb, true);
     this.doc.removeEventListener("load", this.onLoad, true);
     this.doc.removeEventListener("vgp_onok", this.onPick, true);
     this.doc.removeEventListener("click", this.onPick, true);
@@ -1288,10 +1751,127 @@ class DocWatch {
 // One temporary layer above the page, removed again when the animation ends; nothing stays behind.
 // The case and the disc (or game card) are printed with the game's own cover art.
 
-export interface InsertSrc { rect: { left: number; top: number; width: number; height: number } | null; art: string; look: Look }
+export interface InsertSrc { rect: { left: number; top: number; width: number; height: number } | null; art: string; logo?: string; look: Look }
 /** eject: the same scene played backwards (the disc comes out of the slot and back into the case, which closes).
  *  tear: a sealed game's first launch, the shrink-wrap is ripped off before the case opens. */
-export interface InsertOpts { eject?: boolean; tear?: boolean }
+export interface InsertOpts { eject?: boolean; tear?: boolean; speed?: number; artMode?: InsertArt }
+
+// The game cards and cartridges that go into the slot. Sizes are a share of the case width (wf) and height / width (ratio);
+// label = [left, top, right, height] and pins = [left, right, bottom, height] in % of the cartridge. The shapes are stylised.
+type CartKind = "card" | "nes" | "snes" | "n64" | "gb" | "gbc" | "gba" | "ds" | "ds3";
+interface CartSpec { wf: number; ratio: number; clip: string; body: string; rad: number; label: number[]; pins?: number[] /* gold contacts along the bottom [left, right, bottom, height] (only the Game Boy Color shows them) */; grip: boolean; radius?: string /* the label's own border-radius */; bands?: [number, number] /* white bands over the top and the bottom of the label, % of its height; the art window is what lies between them */; notch?: number /* the art window's top edge steps up in the middle, % of the cartridge's height */; logo?: "ds" | "3ds" /* the console's mark in the top band: a line, thicker at the right end, which grows downward from the line's top edge (and red where the 3 is on the 3DS) */; barcode?: "center" | "right" /* dashes in the bottom band, centered or at its right end */; ridges?: number[] /* [left, top, width, height] of a ridged grip panel */; under?: string[] /* css of extra pieces drawn under the label (a see-through cartridge shows its circuit board) */; extra?: string[] /* css of extra pieces drawn over it (grooves, slot, arrow) */; glass?: boolean /* see-through plastic */; slant?: number /* the label's lower left corner is cut off, this many % of the cartridge's width */; noOutline?: boolean /* no white edge around the label */; stop?: number /* in the insert animation it goes only part of the way into the slot, this share of it still out (0.4 = 40%) */; strips?: [number, number] /* a light sticker with a vertical strip on each side of the art (Game Boy, Game Boy Color), each with three black dots in a column; widths in % of the label's width: [left, right] */; plate?: { bg: string; win: [number, number, number, number]; parts: string[] } /* a label printed around the art (SNES): its ground, the art window [left, top, width, height] and the printed pieces, all in % of the label */ }
+const CART_OF: Partial<Record<ShapeId, CartKind>> = { cartridge: "card", nes: "nes", snes: "snes", n64: "n64", gb: "gb", gbc: "gbc", gba: "gba", ds: "ds", "3ds": "ds3" };
+/** An embedded downward arrow: a dark triangle with a light edge just below it, so it looks pressed into the plastic. Percentages of the cartridge. */
+function arrowPieces(l: number, t: number, w: number, h: number, dark = 0.35): string[] {
+  const tri = "clip-path:polygon(0 0,100% 0,50% 100%);";
+  return [
+    `left:${l}%;top:${(t + h * 0.08).toFixed(2)}%;width:${w}%;height:${h}%;background:rgba(255,255,255,.28);${tri}`,
+    `left:${l}%;top:${t}%;width:${w}%;height:${h}%;background:rgba(0,0,0,${dark});${tri}`,
+  ];
+}
+/** The GBA's scooped lip at the top: a lens, rising in the middle (u = 0..1 across it, y in % of its height) */
+function lensClip(): string {
+  const top: string[] = [], bot: string[] = [];
+  for (let i = 0; i <= 20; i++) {
+    const u = i / 20, k = 1 - Math.pow(2 * u - 1, 2);
+    top.push(`${(u * 100).toFixed(1)}% ${(78 - 78 * k).toFixed(1)}%`);
+    bot.unshift(`${(u * 100).toFixed(1)}% ${(78 + 22 * k).toFixed(1)}%`);
+  }
+  return `clip-path:polygon(${top.concat(bot).join(",")});`;
+}
+const CART: Record<CartKind, CartSpec> = {
+  // the Switch game card: small and tall, dark gray, a recessed black panel with the red band (the console's logo) above the art,
+  // a black strip with the number under it, the notch at the top and the arrow at the bottom; square corners at the top
+  card: {
+    wf: 0.3, ratio: 1.45, clip: "none", body: "linear-gradient(180deg,#4a4c52,#26282d)", rad: 9, label: [8, 28.5, 8, 49], noOutline: true, grip: false,
+    under: ["left:5%;right:5%;top:6%;height:84%;border-radius:7px;background:#0b0c0e;"],
+    extra: [
+      "left:8%;right:8%;top:9.5%;height:19%;border-radius:4px 4px 0 0;background:linear-gradient(180deg,#ee3a3f,#d11a22);",
+      "left:13%;width:15%;top:13.8%;height:10.4%;border-radius:3px;border:2px solid rgba(255,255,255,.92);",
+      "left:32%;right:13%;top:15.2%;height:3%;background:rgba(255,255,255,.92);",
+      "left:32%;right:13%;top:19.8%;height:4%;background:rgba(255,255,255,.96);",
+      "left:8%;right:8%;top:77.5%;height:11%;border-radius:0 0 4px 4px;background:#0c0d0f;",
+      "left:16%;right:16%;top:81.8%;height:2.6%;background:repeating-linear-gradient(90deg,rgba(255,255,255,.8) 0 2px,transparent 2px 4px);",
+      "left:34%;right:34%;top:1.5%;height:2.4%;border-radius:0 0 2px 2px;background:#0d0e11;",
+      ...arrowPieces(41, 90.8, 18, 5, 0.6),
+    ],
+  },
+  n64: { stop: 0.4, wf: 0.7, ratio: 0.7, clip: "polygon(52% 0%, 62.3% 1%, 68.5% 2%, 73% 3%, 76.5% 4%, 82.5% 6%, 87.3% 8%, 92% 10%, 95.6% 12%, 97.6% 14%, 98.7% 16%, 100% 18.5%, 100% 95.4%, 99.9% 96.6%, 99.6% 97.7%, 99.1% 98.7%, 98.4% 99.4%, 97.6% 99.8%, 96.8% 100%, 3.2% 100%, 2.4% 99.8%, 1.6% 99.4%, 0.9% 98.7%, 0.4% 97.7%, 0.1% 96.6%, 0% 95.4%, 0% 18.5%, 1.3% 16%, 2.4% 14%, 4.4% 12%, 8% 10%, 12.7% 8%, 17.5% 6%, 23.5% 4%, 27% 3%, 31.5% 2%, 37.7% 1%, 48% 0%)", body: "linear-gradient(180deg,#b9babe,#84858a)", rad: 0, label: [25.9, 10.9, 25.6, 80.2], noOutline: true, radius: "50% 50% 4px 4px / 5.5% 5.5% 4px 4px", grip: false, extra: [
+    // the two vertical lines (grooves) beside the label
+    "left:20.2%;top:5%;width:0.8%;height:94%;background:linear-gradient(90deg,rgba(0,0,0,.38) 0 50%,rgba(255,255,255,.3) 50%);",
+    "right:20.2%;top:5%;width:0.8%;height:94%;background:linear-gradient(90deg,rgba(0,0,0,.38) 0 50%,rgba(255,255,255,.3) 50%);",
+    // a line in each lower corner: from the bottom edge up, then curving out to the side of the cartridge
+    "left:0;top:71.4%;width:8.1%;height:28.6%;border-style:solid;border-color:rgba(0,0,0,.36);border-width:1.5px 1.5px 0 0;border-radius:0 18px 0 0;filter:drop-shadow(1px 1px 0 rgba(255,255,255,.3));",
+    "right:0;top:71.4%;width:8.1%;height:28.6%;border-style:solid;border-color:rgba(0,0,0,.36);border-width:1.5px 0 0 1.5px;border-radius:18px 0 0 0;filter:drop-shadow(-1px 1px 0 rgba(255,255,255,.3));",
+  ] },
+  gba: { wf: 0.7, ratio: 0.59, clip: "polygon(0% 7.1%, 0.1% 5.3%, 0.6% 3.6%, 1.2% 2.1%, 2.1% 1%, 3.1% 0.2%, 4.2% 0%, 95.8% 0%, 96.9% 0.2%, 97.9% 1%, 98.8% 2.1%, 99.4% 3.6%, 99.9% 5.3%, 100% 7.1%, 100% 19.2%, 99.4% 20.3%, 96.8% 21.4%, 96.8% 94.2%, 96.7% 95.7%, 96.3% 97.1%, 95.8% 98.3%, 95.1% 99.2%, 94.3% 99.8%, 93.4% 100%, 6.6% 100%, 5.7% 99.8%, 4.9% 99.2%, 4.2% 98.3%, 3.7% 97.1%, 3.3% 95.7%, 3.2% 94.2%, 3.2% 21.4%, 0.6% 20.3%, 0% 19.2%)", body: "linear-gradient(180deg,#4a4c52,#26282d)", rad: 0, label: [13.5, 22.6, 12.5, 65], noOutline: true, grip: false, extra: [
+    // the scooped lip at the top (a lens rising in the middle), lit along its upper edge
+    `left:16%;top:3.1%;width:70%;height:13.6%;background:rgba(255,255,255,.13);${lensClip()}`,
+    `left:16%;top:3.9%;width:70%;height:13.6%;background:linear-gradient(180deg,rgba(0,0,0,.66),rgba(0,0,0,.18));${lensClip()}`,
+    ...arrowPieces(40.25, 91.3, 19.5, 6.1, 0.55),
+  ] },
+  gb: { wf: 0.58, ratio: 1.146, clip: "polygon(0% 1.9%, 0.2% 1.2%, 0.6% 0.6%, 1.4% 0.1%, 2.2% 0%, 90.8% 0%, 90.8% 3.9%, 91.5% 4.8%, 98.4% 4.8%, 100% 6.8%, 100% 97.4%, 99.9% 98.2%, 99.4% 98.9%, 98.8% 99.5%, 97.9% 99.9%, 97% 100%, 3% 100%, 2.1% 99.9%, 1.2% 99.5%, 0.6% 98.9%, 0.1% 98.2%, 0% 97.4%)", body: "linear-gradient(180deg,#aaa6b2,#7d7886)", rad: 0, label: [12.7, 29.1, 13.2, 57.3], strips: [9.1, 9.8], grip: false, extra: ["left:11.4%;top:6%;right:11%;height:15%;border-radius:999px;box-shadow:inset 0 0 0 1.5px rgba(0,0,0,.22),0 1px 0 rgba(255,255,255,.2);", "left:2%;top:6%;width:8%;height:15%;background:repeating-linear-gradient(180deg,rgba(0,0,0,.3) 0 1px,rgba(255,255,255,.18) 1px 2px,transparent 2px 4px);", "left:90%;top:6%;width:8%;height:15%;background:repeating-linear-gradient(180deg,rgba(0,0,0,.3) 0 1px,rgba(255,255,255,.18) 1px 2px,transparent 2px 4px);", ...arrowPieces(42.4, 89.4, 15.3, 7.6, 0.32)] },
+  gbc: { wf: 0.58, ratio: 1.07, clip: "polygon(0% 3.9%, 0.2% 2.7%, 0.8% 1.6%, 1.7% 0.7%, 2.9% 0.2%, 4.2% 0%, 95.8% 0%, 97.1% 0.2%, 98.3% 0.7%, 99.2% 1.6%, 99.8% 2.7%, 100% 3.9%, 100% 98.1%, 99.9% 98.7%, 99.6% 99.2%, 99.2% 99.6%, 98.6% 99.9%, 98% 100%, 2% 100%, 1.4% 99.9%, 0.8% 99.6%, 0.4% 99.2%, 0.1% 98.7%, 0% 98.1%)", body: "linear-gradient(180deg,rgba(104,110,118,.58),rgba(30,33,38,.78))", rad: 0, label: [13, 29.5, 12.6, 61.2], strips: [10.6, 10.5], pins: [11, 12, 1.5, 6], grip: false, glass: true, under: ["left:6%;top:7%;right:6%;bottom:8%;border-radius:2px;background:linear-gradient(180deg,rgba(52,104,74,.9),rgba(24,60,42,.92));box-shadow:inset 0 0 0 1px rgba(255,255,255,.1);", "left:6%;top:7%;right:6%;height:22.5%;background:repeating-linear-gradient(0deg,rgba(170,215,170,.11) 0 1px,transparent 1px 6px),repeating-linear-gradient(90deg,rgba(170,215,170,.08) 0 1px,transparent 1px 9px);", "left:51.4%;top:7.7%;width:24.4%;height:22.8%;border-radius:50%;background:rgba(8,28,18,.5);", "left:52.7%;top:8.9%;width:21.6%;height:20.2%;border-radius:50%;background:radial-gradient(circle at 42% 38%,rgba(216,220,224,.4),rgba(152,158,164,.36) 58%,rgba(98,104,110,.36));box-shadow:inset 0 0 0 2px rgba(255,255,255,.26),inset 0 0 0 4px rgba(0,0,0,.1);", "left:56.2%;top:12.2%;width:14.6%;height:13.6%;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(255,255,255,.2);", "left:43%;top:18.2%;width:40%;height:4.4%;border-radius:1px;background:linear-gradient(180deg,rgba(218,222,226,.4),rgba(138,144,150,.36));", "left:22.4%;top:9.6%;width:15.2%;height:9%;background:repeating-linear-gradient(0deg,rgba(205,205,205,.5) 0 1px,transparent 1px 3px);", "left:24%;top:9%;width:12%;height:10%;border-radius:1px;background:linear-gradient(180deg,#2c2f36,#0d0e11);", "left:22%;top:21.8%;width:15%;height:4.4%;background:repeating-linear-gradient(90deg,rgba(205,205,205,.45) 0 1px,transparent 1px 3px);", "left:23%;top:22.3%;width:13%;height:3.4%;border-radius:1px;background:linear-gradient(180deg,#2c2f36,#0d0e11);", "left:40%;top:11%;width:6.5%;height:5%;border-radius:1px;background:linear-gradient(180deg,#2c2f36,#0d0e11);", "left:10%;top:14%;width:2.2%;height:2.1%;background:#b8923f;border-radius:1px;", "left:10%;top:19.5%;width:2.2%;height:2.1%;background:#b8923f;border-radius:1px;", "left:14.6%;top:14%;width:2.2%;height:2.1%;background:#b8923f;border-radius:1px;", "left:38.4%;top:21%;width:2.2%;height:2.1%;background:#b8923f;border-radius:1px;", "left:45.5%;top:25.4%;width:2.2%;height:2.1%;background:#b8923f;border-radius:1px;", "left:81.5%;top:13%;width:2.2%;height:2.1%;background:#b8923f;border-radius:1px;", "left:85%;top:18.2%;width:2.2%;height:2.1%;background:#b8923f;border-radius:1px;", "left:14.6%;top:24.5%;width:2.2%;height:2.1%;background:#b8923f;border-radius:1px;", "left:9%;right:10%;top:91%;height:7.5%;background:#15171b;"], extra: ["inset:0;background:linear-gradient(180deg,rgba(255,255,255,.2),rgba(255,255,255,0) 22%);"] },
+  nes: { wf: 0.62, ratio: 1.16, clip: "polygon(0% 1.2%, 0.6% 0%, 3.6% 0%, 3.9% 0.9%, 9.2% 0.9%, 9.5% 0%, 91.1% 0%, 91.3% 1.1%, 95.2% 1.1%, 95.6% 0%, 99.4% 0%, 100% 1.2%, 100% 79.5%, 96.6% 80.7%, 95.2% 82.7%, 95.2% 100%, 4.8% 100%, 4.8% 82.7%, 3.4% 80.7%, 0% 79.5%)", body: "linear-gradient(180deg,#9a9ba0,#6a6b70)", rad: 0, label: [41.1, 0.8, 12.3, 66.1], noOutline: true, grip: false,
+    // the strips run from the bottom box up into the boxed hole at the top of the cartridge
+    ridges: [16.7, 1.2, 21.4, 88.5],
+    under: ["left:16.7%;top:0;width:21.4%;height:13%;background:linear-gradient(180deg,rgba(10,9,12,.8),rgba(30,28,33,.6));box-shadow:inset 0 0 0 1px rgba(0,0,0,.35);"],
+    extra: [
+      // the box where the strips stop
+      "left:15.8%;top:90.2%;width:22.3%;height:9.3%;border-radius:4px 4px 0 0;background:linear-gradient(180deg,rgba(255,255,255,.1),rgba(255,255,255,.02));box-shadow:inset 0 0 0 1px rgba(0,0,0,.3),inset 1px 1px 0 rgba(255,255,255,.15);",
+      // the arrow: as far from the strips (to its left) as from the art (above it)
+      ...arrowPieces(45.6, 73.3, 10.2, 7.4, 0.3),
+    ] },
+  snes: { stop: 0.4, wf: 0.72, ratio: 0.647, clip: "polygon(16.8% 0%, 83.2% 0%, 83.2% 0%, 83.6% 0.2%, 84% 0.7%, 84.1% 1.4%, 84.1% 4.2%, 97.6% 4.2%, 98.3% 4.4%, 99% 4.9%, 99.5% 5.7%, 99.9% 6.8%, 100% 7.9%, 100% 94.5%, 99.9% 95.6%, 99.5% 96.7%, 99% 97.5%, 98.3% 98%, 97.6% 98.2%, 84.1% 98.2%, 84.1% 100%, 15.9% 100%, 15.9% 98.2%, 2.4% 98.2%, 1.7% 98%, 1% 97.5%, 0.5% 96.7%, 0.1% 95.6%, 0% 94.5%, 0% 7.9%, 0.1% 6.8%, 0.5% 5.7%, 1% 4.9%, 1.7% 4.4%, 2.4% 4.2%, 15.9% 4.2%, 15.9% 1.4%, 16% 0.7%, 16.4% 0.2%, 16.8% 0%)", body: "linear-gradient(180deg,#b9babe,#84858a)", rad: 0, label: [18.4, 2, 17.5, 45], plate: { bg: "linear-gradient(180deg,#151518,#09090b)", win: [14.7, 1.6, 56.6, 81], parts: ["left:72.5%;right:0.4%;top:0;height:6%;background:linear-gradient(180deg,#ea343c,#cb2029);", "left:84%;top:19.5%;width:14.6%;height:43.5%;border-radius:1px;background:linear-gradient(180deg,#2b2c31,#222328);box-shadow:inset 0 0 0 1px rgba(255,255,255,.05);", "left:2.7%;top:15.2%;width:12%;height:6.4%;border-radius:2px;background:linear-gradient(180deg,#f4efef,#d8cfcf);box-shadow:inset 0 0 0 1px #d42a33;", "left:4.1%;top:29.5%;width:3.8%;height:5%;background:#b48ad2;clip-path:polygon(0 0,100% 0,50% 100%);", "left:3.9%;top:70%;width:9.6%;height:16%;border-radius:50%;background:radial-gradient(ellipse at 50% 45%,#ddd7b6 0 38%,#a9a27a 40% 58%,#eee9cb 60% 76%,#7c7656 80%);", "left:3.1%;width:12.6%;top:90.8%;height:3.2%;background:radial-gradient(closest-side,rgba(255,255,255,.92) 0 85%,transparent 100%) 0 0/3px 100% round;", "left:3.1%;width:13.8%;top:95.4%;height:3.2%;background:radial-gradient(closest-side,rgba(255,255,255,.92) 0 85%,transparent 100%) 0 0/3px 100% round;", "left:74%;right:1.2%;top:86%;height:4%;background:#d8232e;", "left:74.6%;right:1.8%;top:94.6%;height:1.8%;background:#d8232e;"] }, grip: false, extra: ["left:0%;width:15.6%;top:19.2%;height:1.8%;background:linear-gradient(180deg,rgba(0,0,0,.38) 0 55%,rgba(255,255,255,.2) 55% 100%);", "left:0%;width:15.6%;top:34.8%;height:1.8%;background:linear-gradient(180deg,rgba(0,0,0,.38) 0 55%,rgba(255,255,255,.2) 55% 100%);", "left:0%;width:15.6%;top:50.5%;height:1.8%;background:linear-gradient(180deg,rgba(0,0,0,.38) 0 55%,rgba(255,255,255,.2) 55% 100%);", "left:0%;width:15.6%;top:66.4%;height:1.8%;background:linear-gradient(180deg,rgba(0,0,0,.38) 0 55%,rgba(255,255,255,.2) 55% 100%);", "left:0%;width:15.6%;top:82.4%;height:1.8%;background:linear-gradient(180deg,rgba(0,0,0,.38) 0 55%,rgba(255,255,255,.2) 55% 100%);", "left:84.4%;width:15.6%;top:19.2%;height:1.8%;background:linear-gradient(180deg,rgba(0,0,0,.38) 0 55%,rgba(255,255,255,.2) 55% 100%);", "left:84.4%;width:15.6%;top:34.8%;height:1.8%;background:linear-gradient(180deg,rgba(0,0,0,.38) 0 55%,rgba(255,255,255,.2) 55% 100%);", "left:84.4%;width:15.6%;top:50.5%;height:1.8%;background:linear-gradient(180deg,rgba(0,0,0,.38) 0 55%,rgba(255,255,255,.2) 55% 100%);", "left:84.4%;width:15.6%;top:66.4%;height:1.8%;background:linear-gradient(180deg,rgba(0,0,0,.38) 0 55%,rgba(255,255,255,.2) 55% 100%);", "left:84.4%;width:15.6%;top:82.4%;height:1.8%;background:linear-gradient(180deg,rgba(0,0,0,.38) 0 55%,rgba(255,255,255,.2) 55% 100%);", "left:19%;top:60.7%;width:63%;height:7%;border-radius:4px;background:linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,.3));box-shadow:inset 0 1px 2px rgba(0,0,0,.6),0 1px 0 rgba(255,255,255,.18);", "left:41%;top:60.7%;width:18%;height:7%;background:rgba(0,0,0,.38);"] },
+  ds: { wf: 0.36, ratio: 1.06, clip: "polygon(0% 4.3%,4.6% 0%,95.4% 0%,100% 4.3%,100% 95.7%,95.4% 100%,16.00% 100.00%,14.21% 99.91%,12.44% 99.62%,10.72% 99.15%,9.06% 98.51%,7.49% 97.69%,6.02% 96.71%,4.69% 95.58%,3.49% 94.32%,2.45% 92.94%,1.58% 91.45%,0.90% 89.89%,0.40% 88.26%,0.10% 86.60%,0.00% 84.91%)", body: "linear-gradient(180deg,#4a4c52,#26282d)", rad: 0, label: [11, 8.6, 11, 82.2], slant: 6, bands: [17.5, 11.7], notch: 1.5, logo: "ds", barcode: "right", grip: false, extra: arrowPieces(45, 93.2, 10, 4.2, 0.35) },
+  ds3: { wf: 0.38, ratio: 1.0042, clip: "polygon(0 0, 100% 0, 100% 15%, 93% 24%, 93% 100%, 10.00% 100.00%, 8.88% 99.94%, 7.77% 99.75%, 6.70% 99.44%, 5.66% 99.01%, 4.68% 98.47%, 3.77% 97.83%, 2.93% 97.08%, 2.18% 96.25%, 1.53% 95.34%, 0.99% 94.36%, 0.56% 93.33%, 0.25% 92.26%, 0.06% 91.16%, 0.00% 90.04%)", body: "linear-gradient(180deg,#d3d4d7,#9fa1a6)", rad: 6, label: [8.9, 9.6, 14.2, 81.1], slant: 6, bands: [17.7, 11.8], logo: "3ds", barcode: "center", grip: false, extra: arrowPieces(41.5, 93.2, 10, 4.2, 0.28) },
+};
+
+/** What is printed on a disc or cartridge besides the plain cover: the whole cover fitted on a blurred copy of itself,
+ *  the game's logo on a dark ground, or nothing. Returns the layers to put inside the printed area (which clips them). */
+// where the logo goes on a disc: the top part (the way it always was), or the bottom, left or right part (all clear of the hub)
+const DISC_LOGO_BOX: Record<LogoPos, string> = {
+  top: "left:19%;right:19%;top:6%;height:32%;",
+  bottom: "left:19%;right:19%;top:62%;height:32%;",
+  left: "left:5%;width:28%;top:33%;height:34%;",
+  right: "right:5%;width:28%;top:33%;height:34%;",
+};
+function artLayers(doc: Document, mode: InsertArt, art: string, logo: string, disc: boolean, logoPos: LogoPos = "top"): HTMLElement[] {
+  const out: HTMLElement[] = [];
+  if (mode === "none" || mode === "cover") return out;
+  const u = (v: string) => `url(${JSON.stringify(v)})`;
+  if (mode === "logo" && logo) {
+    const pos = disc ? DISC_LOGO_BOX[logoPos] || DISC_LOGO_BOX.top : "left:8%;right:8%;top:10%;bottom:10%;";
+    out.push(box(doc, `${pos}background:${u(logo)} center/contain no-repeat;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6));`));
+    return out;
+  }
+  if (!art) return out;
+  out.push(box(doc, `inset:-14%;background:${u(art)} center/cover no-repeat;filter:blur(8px) brightness(.75);`));
+  out.push(box(doc, `${disc ? "left:8%;right:8%;top:8%;bottom:8%;" : "inset:0;"}background:${u(art)} center/contain no-repeat;`));
+  return out;
+}
+
+/** Loads all addresses at once and calls back with the best one that loads (the earlier in the list the better), or "" */
+function loadBest(view: any, urls: string[], ok: (im: HTMLImageElement) => boolean, ms: number, cb: (u: string) => void): void {
+  if (!urls.length) { cb(""); return; }
+  const done: boolean[] = [], good: boolean[] = [];
+  let settled = false;
+  const decide = (force: boolean) => {
+    if (settled) return;
+    for (let i = 0; i < urls.length; i++) {
+      if (good[i]) { settled = true; cb(urls[i]); return; }
+      if (!done[i] && !force) return; // a better one may still come
+    }
+    if (force || done.filter(Boolean).length === urls.length) { settled = true; cb(""); }
+  };
+  urls.forEach((u, i) => {
+    const im = new view.Image();
+    im.onload = () => { done[i] = true; good[i] = ok(im); decide(false); };
+    im.onerror = () => { done[i] = true; decide(false); };
+    im.src = u;
+  });
+  setTimeout(() => decide(true), ms);
+}
 const TEAR_MS = 700;   // extra time a shrink-wrap tear adds
 const TEAR_AT = 519;   // the timeline is pushed back from here (the case has flown in, the cover is still closed)
 
@@ -1303,7 +1883,8 @@ function box(doc: Document, css: string): HTMLElement {
 
 // Case and disc sounds, made on the spot with Web Audio (no sound files): plastic clicks, the disc lifting,
 // the slide into the slot, the drive spinning up and the final clunk. Times are in ms from the start.
-export function insertSounds(view: Window, card: boolean, volume: number, mode: "insert" | "eject" = "insert", warp: (ms: number) => number = (ms) => ms): void {
+export function insertSounds(view: Window, card: boolean, volume: number, mode: "insert" | "eject" = "insert", warp0: (ms: number) => number = (ms) => ms, speed = 1): void {
+  const warp = (ms: number) => warp0(ms) / speed; // the timeline in real time, at this speed
   try {
     const AC: any = (view as any).AudioContext || (view as any).webkitAudioContext;
     if (!AC) return;
@@ -1358,7 +1939,7 @@ export function insertSounds(view: Window, card: boolean, volume: number, mode: 
       slide(620, 0.3, 2600, 900, card ? 0.35 : 0.28);
       if (card) { click(1300, 4200, 0.025, 0.4); } else { click(1290, 3600, 0.03, 0.3); click(1310, 5200, 0.02, 0.35); }
       click(1820, 2800, 0.035, 0.55); thump(1840, 160, 0.08, 0.3);
-      view.setTimeout(() => { try { ctx.close(); } catch (e) { /* ignore */ } }, 3200);
+      view.setTimeout(() => { try { ctx.close(); } catch (e) { /* ignore */ } }, Math.round(3200 / speed) + 200);
       return;
     }
     // case: hinge unlatches, cover opens and taps open
@@ -1374,11 +1955,11 @@ export function insertSounds(view: Window, card: boolean, volume: number, mode: 
     click(1850, 2800, 0.035, 0.5); thump(1855, 160, 0.07, 0.25);
     // a sealed game: the shrink-wrap crinkles and rips first. The rest of the timeline is pushed back for it, so these
     // use real time (the tear runs from 540 to about 1150 ms).
-    if (warp(519) !== 519) {
+    if (warp0(519) !== 519) {
       const burst = (ms: number, len: number, freq: number, gain: number, kind: BiquadFilterType) => {
         const b = ctx.createBufferSource(); b.buffer = noise(len);
         const f = ctx.createBiquadFilter(); f.type = kind; f.frequency.value = freq; f.Q.value = 3;
-        const g = ctx.createGain(); const at = t0 + ms / 1000;
+        const g = ctx.createGain(); const at = t0 + ms / speed / 1000;
         g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(gain, at + 0.004); g.gain.exponentialRampToValueAtTime(0.0008, at + len);
         b.connect(f); f.connect(g); g.connect(master); b.start(at); b.stop(at + len + 0.02);
       };
@@ -1386,24 +1967,197 @@ export function insertSounds(view: Window, card: boolean, volume: number, mode: 
       burst(800, 0.28, 2600, 0.38, "highpass");                                                                                  // the rip
       for (let k = 0; k < 5; k++) burst(900 + k * 45 + Math.random() * 20, 0.012, 6000 + Math.random() * 2000, 0.14, "bandpass"); // the pieces fly off
     }
-    view.setTimeout(() => { try { ctx.close(); } catch (e) { /* ignore */ } }, 3200);
+    view.setTimeout(() => { try { ctx.close(); } catch (e) { /* ignore */ } }, Math.round(3200 / speed) + 200);
   } catch (e) { /* no sound is fine */ }
 }
 
-export function runInsert(doc: Document, src: InsertSrc, target: "auto" | "handheld" | "console", sound = true, opts: InsertOpts = {}): boolean {
+/** The first color in a css value (a hex color, rgb(), rgba(), hsl() or hsla(), also inside a gradient) as hue, saturation, lightness. */
+export function cssToHsl(css: string): HslColor | null {
+  const m = /#([0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3})\b|(rgba?|hsla?)\(([^)]*)\)/i.exec(css || "");
+  if (!m) return null;
+  let r = 0, g = 0, b = 0;
+  if (m[1]) {
+    let h = m[1];
+    if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+    r = parseInt(h.slice(0, 2), 16); g = parseInt(h.slice(2, 4), 16); b = parseInt(h.slice(4, 6), 16);
+  } else {
+    const v = m[3].split(/[\s,\/]+/).filter(Boolean).map((x) => parseFloat(x));
+    if (v.length < 3 || v.some((x) => !isFinite(x))) return null;
+    if (/^hsl/i.test(m[2])) {
+      const hh = ((v[0] % 360) + 360) % 360, ss = v[1] / 100, ll = v[2] / 100;
+      return { h: Math.round(hh), s: Math.round(Math.min(100, Math.max(0, ss * 100))), l: Math.round(Math.min(94, Math.max(4, ll * 100))) };
+    }
+    r = v[0]; g = v[1]; b = v[2];
+  }
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+  let h = 0, s = 0;
+  if (d > 0) {
+    s = d / (1 - Math.abs(2 * l - 1));
+    h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    h = Math.round(((h * 60) + 360) % 360);
+  }
+  return { h, s: Math.round(s * 100), l: Math.round(Math.min(94, Math.max(4, l * 100))) };
+}
+
+/** The color a disc or cartridge has when nothing sets one: the console's own plastic of a cartridge, or the printed color of a disc.
+ *  Used as the starting point of the color sliders. */
+export function autoMediaColor(shapeId: ShapeId, pal: Pal): HslColor {
+  const kind = CART_OF[shapeId];
+  const c = kind ? cssToHsl(CART[kind].body) : cssToHsl(pal.a);
+  return c || { h: 220, s: 10, l: 40 };
+}
+
+/** The color of a look's disc or cartridge as drawn: the one set for it, else the console's own. */
+export function mediaColorOf(look: Look): HslColor {
+  return look.media || autoMediaColor(look.shapeId, look.pal);
+}
+
+export function wearCss(w: WearId): string { return WEAR_CSS[w]; }
+
+/** The art window of a cartridge when no color is set for it: black (a dark backdrop), or white, or the cartridge's own color. */
+const WINDOW_DARK = "linear-gradient(160deg,#2c313b,#0d0f13)";
+const WINDOW_WHITE = "linear-gradient(160deg,#fbfbfa,#cfd2d8)";
+export function autoWindowColor(): HslColor { return cssToHsl(WINDOW_DARK) || { h: 220, s: 15, l: 20 }; }
+export function whiteWindowColor(): HslColor { return cssToHsl(WINDOW_WHITE) || { h: 0, s: 0, l: 94 }; }
+
+/** What goes into the media builder: the case's shape (decides disc or which cartridge), its palette and the color of the disc or cartridge. */
+export interface MediaIn { shapeId: ShapeId; pal: Pal; media: HslColor | null; window?: HslColor | null /* cartridges: the art window's color (none = by windowMode) */; windowMode?: "black" | "white" | "match"; artCss: string /* a css background image: url(...) or a gradient */; artUrl: string; logo: string; artMode: InsertArt; logoPos?: LogoPos /* discs: where the logo sits */; artY?: number /* Cover (Fill): the cover moved down (+) or up (-), -50 to 50 */ }
+
+/** The shape of what goes in the case: a disc (round) or a cartridge, as a share of the case width and as height / width. */
+export function mediaGeom(shapeId: ShapeId): { card: boolean; wf: number; ratio: number; discK: number } {
+  const kind = CART_OF[shapeId];
+  const spec = kind ? CART[kind] : null;
+  if (spec) return { card: true, wf: spec.wf, ratio: spec.ratio, discK: 1 };
+  return { card: false, wf: 0.76 * (shapeId === "gc" ? 0.667 : 1), ratio: 1, discK: shapeId === "gc" ? 0.667 : 1 }; // a GameCube mini disc is 8 cm, a normal disc 12 cm
+}
+
+/** A disc or cartridge printed with the game's art, filling its box (position:absolute; inset:0). Used by the insert animation
+ *  and by the still previews in Looks, colors and presets. */
+export function buildMedia(doc: Document, o: MediaIn): { el: HTMLElement; spin: HTMLElement | null } {
+  const pal = o.pal, artMode = o.artMode;
+  // Cover (Fill): the cover is centered by default; "Adjust Art Vertically" moves it down (+) or up (-) within the room the picture has
+  const coverPos = `50% ${50 - Math.max(ART_Y_MIN, Math.min(ART_Y_MAX, o.artY || 0))}%`;
+  const cartKind = CART_OF[o.shapeId];
+  const spec: CartSpec | null = cartKind ? CART[cartKind] : null;
+  const shade = (c: HslColor) => `linear-gradient(160deg, hsl(${c.h}, ${c.s}%, ${Math.min(94, c.l + 10)}%), hsl(${c.h}, ${c.s}%, ${Math.max(4, c.l - 16)}%))`;
+  // what shows behind the logo (or the whole cover, or when nothing is printed): a disc is one color, so the print simply goes over it;
+  // a cartridge has an art window of its own: the color set for it, else a dark backdrop, or the cartridge's own color (the global choice)
+  const printBg = spec
+    ? (o.window ? shade(o.window) : o.windowMode === "match" ? shade(o.media || autoMediaColor(o.shapeId, pal)) : o.windowMode === "white" ? WINDOW_WHITE : WINDOW_DARK)
+    : o.media ? shade(o.media)
+    : artMode === "logo" && o.logo ? "linear-gradient(160deg,#2c313b,#0d0f13)" : `linear-gradient(160deg, ${pal.a}, ${pal.b})`;
+  const el = box(doc, "inset:0;");
+  if (spec) {
+    // the plastic: the console's own color, or the color set for this game / collection
+    const cc = o.media;
+    const al = spec.glass ? [0.62, 0.8] : [1, 1]; // see-through plastic keeps some of what is behind it
+    const plastic = cc ? `linear-gradient(180deg,hsla(${cc.h},${cc.s}%,${Math.min(94, cc.l + 10)}%,${al[0]}),hsla(${cc.h},${cc.s}%,${Math.max(4, cc.l - 16)}%,${al[1]}))` : spec.body;
+    const c = box(doc, `inset:0;border-radius:${spec.rad}px;clip-path:${spec.clip};background:${plastic};box-shadow:inset 0 0 0 2px rgba(255,255,255,.18);`);
+    (spec.under || []).forEach((u) => c.appendChild(box(doc, u)));
+    const [ll, lt, lr, lh] = spec.label;
+    const print = artMode === "cover" ? `background:${o.artCss} ${coverPos}/cover no-repeat;` : `overflow:hidden;background:${printBg};`;
+    // the label's lower left corner can be cut off at a slant (DS, 3DS); a clip also cuts the white edge, so that is drawn as a piece of its own
+    let cut = "";
+    if (spec.slant) {
+      const cx = spec.slant / (100 - ll - lr) * 100, cy = spec.slant / (lh * spec.ratio) * 100;
+      cut = `clip-path:polygon(0 0,100% 0,100% 100%,${cx.toFixed(1)}% 100%,0 ${(100 - cy).toFixed(1)}%);`;
+      if (!spec.noOutline && !spec.bands) c.appendChild(box(doc, `left:calc(${ll}% - 2px);top:calc(${lt}% - 2px);right:calc(${lr}% - 2px);height:calc(${lh}% + 4px);border-radius:6px;background:rgba(255,255,255,.85);${cut}`));
+    }
+    const edge = spec.noOutline || spec.slant ? "" : "box-shadow:0 0 0 2px rgba(255,255,255,.85);";
+    let lab: HTMLElement;
+    let sheet: HTMLElement | null = null; // when the label is made of several pieces: the piece that goes on the cartridge (the art window sits on it)
+    if (spec.plate) {
+      // a label printed around the art (the SNES's black "U"): the ground with its printed pieces, the art window on top
+      const [wl, wt, ww, wh] = spec.plate.win;
+      sheet = box(doc, `left:${ll}%;top:${lt}%;right:${lr}%;height:${lh}%;border-radius:2px;overflow:hidden;background:${spec.plate.bg};`);
+      spec.plate.parts.forEach((u) => (sheet as HTMLElement).appendChild(box(doc, u)));
+      lab = box(doc, `left:${wl}%;top:${wt}%;width:${ww}%;height:${wh}%;${print}`);
+      sheet.appendChild(lab);
+    } else if (spec.strips) {
+      // a light sticker with a vertical strip on each side of the art, and a small black dot in the middle of each strip
+      const [sl, sr] = spec.strips, lw = 100 - ll - lr;
+      sheet = box(doc, `left:${ll}%;top:${lt}%;right:${lr}%;height:${lh}%;border-radius:4px;overflow:hidden;background:#e9ebef;box-shadow:0 0 0 1.5px rgba(0,0,0,.22);`);
+      lab = box(doc, `left:${sl}%;right:${sr}%;top:0;bottom:0;${print}`);
+      sheet.appendChild(lab);
+      // the dot is round: its height in % of the sticker's height follows from its width in % of the sticker's width
+      const dw = Math.min(sl, sr) * 0.36, dh = dw * lw / (lh * spec.ratio);
+      // three dots on each strip: one in the middle, one above it and one below it
+      for (const dy of [-2.4 * dh, 0, 2.4 * dh]) {
+        sheet.appendChild(box(doc, `left:${sl / 2 - dw / 2}%;top:${50 + dy - dh / 2}%;width:${dw}%;height:${dh}%;border-radius:50%;background:#15161a;`));
+        sheet.appendChild(box(doc, `right:${sr / 2 - dw / 2}%;top:${50 + dy - dh / 2}%;width:${dw}%;height:${dh}%;border-radius:50%;background:#15161a;`));
+      }
+    } else if (spec.bands) {
+      // the label is a white sticker: a band over the top (with the console's logo), the art window, a band under it; the cut corner belongs to the sticker
+      const lw = 100 - ll - lr, [bt, bb] = spec.bands;
+      const aTop = lt + lh * bt / 100, aH = lh * (100 - bt - bb) / 100, n = spec.notch || 0;
+      c.appendChild(box(doc, `left:${ll}%;top:${lt}%;right:${lr}%;height:${lh}%;border-radius:4px;background:#f6f6f3;${cut}`));
+      const nPct = n ? (n / (aH + n) * 100).toFixed(1) : "0";
+      const step = n ? `clip-path:polygon(0 ${nPct}%,36% ${nPct}%,39% 0,66% 0,69% ${nPct}%,100% ${nPct}%,100% 100%,0 100%);` : "";
+      lab = box(doc, `left:${ll}%;top:${aTop - n}%;right:${lr}%;height:${aH + n}%;${print}${step}`);
+      // the console's mark in the top band: one black line in the middle, a little bigger at its right end (where the logo grows into "DS" / "3DS");
+      // on the 3DS the start of that bigger part is red, where the 3 is. Nothing else in the band.
+      const bandH = lh * bt / 100, ink = "#23242a", mid = lt + bandH / 2 - bandH * 0.125; // raised: the thin line and the bigger part under it are centered in the band together
+      if (spec.logo) {
+        const x0 = ll + lw * 0.1, x1 = ll + lw * 0.9, xs = ll + lw * (spec.logo === "3ds" ? 0.5 : 0.58); // the thin part ends, the bigger part starts
+        c.appendChild(box(doc, `left:${x0}%;width:${xs - x0}%;top:${mid - bandH * 0.045}%;height:${bandH * 0.09}%;background:${ink};`));
+        c.appendChild(box(doc, `left:${xs}%;width:${x1 - xs}%;top:${mid - bandH * 0.045}%;height:${bandH * 0.34}%;border-radius:1px;background:${ink};`));
+        if (spec.logo === "3ds") c.appendChild(box(doc, `left:${xs}%;width:${(x1 - xs) * 0.3}%;top:${mid - bandH * 0.045}%;height:${bandH * 0.34}%;border-radius:1px;background:#d9262c;`));
+      }
+      // the number of the cartridge, as dashes in the bottom band
+      if (spec.barcode) {
+        const bt0 = lt + lh * (100 - bb) / 100, bh = lh * bb / 100;
+        const pos = spec.barcode === "right" ? `right:${lr + lw * 0.07}%;width:${lw * 0.42}%;` : `left:${ll + lw * 0.2}%;width:${lw * 0.6}%;`;
+        c.appendChild(box(doc, `${pos}top:${bt0 + bh * 0.3}%;height:${bh * 0.4}%;background:repeating-linear-gradient(90deg,${ink} 0 2px,transparent 2px 4px);`));
+      }
+    } else {
+      lab = box(doc, `left:${ll}%;top:${lt}%;right:${lr}%;height:${lh}%;border-radius:${spec.radius || (spec.noOutline ? 1 : 4) + "px"};${print}${edge}${cut}`);
+    }
+    artLayers(doc, artMode, o.artUrl, o.logo, false).forEach((k) => lab.appendChild(k));
+    c.appendChild(sheet || lab);
+    if (spec.grip) c.appendChild(box(doc, `left:${ll}%;right:${lr}%;top:${lt + lh + 3}%;height:12%;background:repeating-linear-gradient(0deg, rgba(0,0,0,.28) 0 1px, rgba(255,255,255,.12) 1px 2px, transparent 2px 5px);`));
+    if (spec.ridges) { const [rl, rt, rw, rh] = spec.ridges; c.appendChild(box(doc, `left:${rl}%;top:${rt}%;width:${rw}%;height:${rh}%;background:repeating-linear-gradient(0deg, rgba(0,0,0,.34) 0 2px, rgba(255,255,255,.14) 2px 3px, transparent 3px 7px);`)); }
+    (spec.extra || []).forEach((u) => c.appendChild(box(doc, u)));
+    if (spec.pins) {
+      const [pl, pr, pb, ph] = spec.pins;
+      c.appendChild(box(doc, `left:${pl}%;right:${pr}%;bottom:${pb}%;height:${ph}%;background:repeating-linear-gradient(90deg,#e0bf55 0 3px,#8a6d1c 3px 4px,transparent 4px 7px);border-radius:2px;`));
+    }
+    c.appendChild(box(doc, `inset:0;border-radius:${spec.rad}px;clip-path:${spec.clip};background:linear-gradient(120deg, rgba(255,255,255,.28), rgba(255,255,255,0) 40%);`));
+    el.appendChild(c);
+    return { el, spin: null };
+  }
+  const hole = "radial-gradient(circle, transparent 0 6.2%, #000 6.6%)";
+  const discArt = artMode === "cover" ? `background:${o.artCss} ${coverPos}/cover no-repeat, ${o.media ? hslCss(o.media) : pal.b};` : `overflow:hidden;background:${printBg};`;
+  const spin = box(doc, `inset:0;border-radius:50%;${discArt}-webkit-mask:${hole};mask:${hole};`);
+  artLayers(doc, artMode, o.artUrl, o.logo, true, o.logoPos).forEach((k) => spin.appendChild(k));
+  // the hub ring (clear plastic, or the disc's own color) and the outer rim (they spin with the print)
+  const hub = o.media ? `hsla(${o.media.h}, ${o.media.s}%, ${o.media.l}%, .92)` : "rgba(230,236,245,.62)";
+  spin.appendChild(box(doc, `inset:0;border-radius:50%;background:radial-gradient(circle, transparent 0 6.4%, ${hub} 6.8% 15.2%, rgba(255,255,255,.95) 15.5% 16.1%, rgba(0,0,0,.25) 16.4% 17%, transparent 17.4% 95.6%, rgba(255,255,255,.7) 96.2% 97.4%, rgba(0,0,0,.45) 98%);`));
+  el.appendChild(spin);
+  // light on the disc stays still while it spins (plain alpha: blend modes would flatten the 3D case)
+  el.appendChild(box(doc, `inset:0;border-radius:50%;-webkit-mask:${hole};mask:${hole};background:conic-gradient(from 40deg, rgba(255,255,255,0) 0, rgba(255,255,255,.30) 6%, rgba(160,220,255,.14) 11%, rgba(255,255,255,0) 17%, rgba(255,255,255,0) 50%, rgba(255,255,255,.26) 56%, rgba(255,190,240,.12) 61%, rgba(255,255,255,0) 67%);`));
+  return { el, spin };
+}
+
+export function runInsert(doc: Document, src: InsertSrc, target: "handheld" | "console", sound = true, opts: InsertOpts = {}): boolean {
   const view = doc.defaultView;
   if (!view || !doc.body || typeof (doc.body as any).animate !== "function") return false;
   const old = doc.getElementById("sanso-insert");
   if (old) old.remove(); // a newer launch replaces one still playing
   const W = view.innerWidth, H = view.innerHeight;
   if (W < 200 || H < 200) return false; // the window is not laid out yet (e.g. Steam coming back after a game): try again later
-  const variant = target === "auto" ? (W >= 1800 ? "console" : "handheld") : target;
+  const variant = target;
   const L = src.look, pal = L.pal;
   const art = src.art ? `url(${JSON.stringify(src.art)})` : `linear-gradient(160deg, ${pal.a}, ${pal.b})`;
-  const card = L.shapeId === "cartridge";
+  const cartKind = CART_OF[L.shapeId];
+  const spec: CartSpec | null = cartKind ? CART[cartKind] : null;
+  const card = !!spec;
+  const speed = Math.max(0.25, Math.min(4, opts.speed || 1));
+  // what is printed on the disc / cartridge (the logo falls back to the fitted cover when the game has none)
+  const artMode: InsertArt = opts.artMode === "logo" && !src.logo ? "fit" : (opts.artMode || "cover");
   const rad = Math.max(3, L.shape.radius + 2);
 
-  // final size and place of the case: big and centred a little to the right, so the cover can swing open to the left
+  // final size and place of the case: big and centered a little to the right, so the cover can swing open to the left
   const ch = Math.round(Math.min(H * 0.56, W * 0.42 * 1.5)), cw = Math.round(ch / 1.5);
   const cx = Math.round(W * 0.56 - cw / 2), cy = Math.round(H * 0.42 - ch / 2);
   const d = Math.max(10, Math.round(cw * (card ? 0.06 : 0.1)));
@@ -1418,7 +2172,7 @@ export function runInsert(doc: Document, src: InsertSrc, target: "auto" | "handh
   const shade = box(doc, `inset:0;background:radial-gradient(120% 95% at 55% 40%, rgb(16,21,32), rgb(3,4,8));opacity:0;`);
   root.appendChild(shade);
 
-  // soft light behind the case in the game's colour
+  // soft light behind the case in the game's color
   const glow = box(doc, `left:${Math.round(cx - cw * 0.9)}px;top:${Math.round(cy - ch * 0.35)}px;width:${Math.round(cw * 2.8)}px;height:${Math.round(ch * 1.7)}px;border-radius:50%;background:radial-gradient(closest-side, ${pal.a}, transparent);opacity:0;filter:blur(30px);`);
   root.appendChild(glow);
   // ---- the case ----
@@ -1430,12 +2184,17 @@ export function runInsert(doc: Document, src: InsertSrc, target: "auto" | "handh
   wrap.appendChild(stage);
   const shell = `linear-gradient(135deg, rgba(255,255,255,.10), rgba(0,0,0,.25)), ${pal.b}`;
   stage.appendChild(box(doc, `inset:0;border-radius:${rad}px;background:${shell};transform:translateZ(-${d}px);box-shadow:0 30px 60px rgba(0,0,0,.55);`));
+  const discK = L.shapeId === "gc" ? 0.667 : 1; // a GameCube mini disc is 8 cm, a normal disc 12 cm
   // inside: dark plastic tray with the hub (or a card slot)
   const tray = card
     ? `linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.2)), repeating-linear-gradient(90deg, rgba(255,255,255,.025) 0 2px, transparent 2px 6px), #15171c`
-    : `radial-gradient(circle at 50% 50%, #3d424b 0 4.5%, #0b0c0f 5% 6.5%, #2c3038 7% 10.5%, #121418 11% 42%, rgba(255,255,255,.07) 42.6% 43.4%, #14161b 44% 100%)`;
+    : `radial-gradient(circle at 50% 50%, #3d424b 0 4.5%, #0b0c0f 5% 6.5%, #2c3038 7% 10.5%, #121418 11% ${(42 * discK).toFixed(1)}%, rgba(255,255,255,.07) ${(42.6 * discK).toFixed(1)}% ${(43.4 * discK).toFixed(1)}%, #14161b ${(44 * discK).toFixed(1)}% 100%)`;
   stage.appendChild(box(doc, `left:4%;top:3%;right:4%;bottom:3%;border-radius:${Math.max(2, rad - 2)}px;background:${tray};transform:translateZ(-${d - 2}px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06), inset 0 8px 18px rgba(0,0,0,.5);`));
-  if (card) stage.appendChild(box(doc, `left:22%;top:16%;width:56%;height:40%;border-radius:6px;background:rgba(0,0,0,.55);box-shadow:inset 0 0 0 2px rgba(255,255,255,.07);transform:translateZ(-${d - 3}px);`));
+  if (spec) {
+    // a recess in the tray a little bigger than the cartridge
+    const rw = Math.round(cw * spec.wf * 1.08), rh = Math.round(cw * spec.wf * spec.ratio * 1.08);
+    stage.appendChild(box(doc, `left:${Math.round(cw / 2 - rw / 2)}px;top:${Math.round(ch * 0.36 - rh / 2)}px;width:${rw}px;height:${rh}px;border-radius:6px;background:rgba(0,0,0,.55);box-shadow:inset 0 0 0 2px rgba(255,255,255,.07);transform:translateZ(-${d - 3}px);`));
+  }
   // walls: spine (left, hinge side), top, bottom, right
   stage.appendChild(box(doc, `top:0;bottom:0;left:0;width:${d}px;transform-origin:left center;transform:rotateY(90deg);background:linear-gradient(90deg, ${pal.a}, ${pal.b});`));
   stage.appendChild(box(doc, `top:0;bottom:0;right:0;width:${d}px;transform-origin:right center;transform:rotateY(-90deg);background:linear-gradient(270deg, ${pal.b}, ${pal.a});`));
@@ -1459,32 +2218,15 @@ export function runInsert(doc: Document, src: InsertSrc, target: "auto" | "handh
   const handheld = variant !== "console";
   const slotY = H - 7, slotX = W - 7;
   const layer = box(doc, `inset:0;${handheld ? `clip-path:inset(0 0 ${H - slotY}px 0);` : `clip-path:inset(0 ${W - slotX}px 0 0);`}`);
-  const D = Math.round(card ? cw * 0.5 : cw * 0.76);
-  const DH = card ? Math.round(D * 1.16) : D;
+  const D = Math.round(spec ? cw * spec.wf : cw * 0.76 * discK);
+  const DH = spec ? Math.round(D * spec.ratio) : D;
   const dcx = cx + cw / 2, dcy = cy + ch * (card ? 0.36 : 0.5);
   const holder = box(doc, `left:${Math.round(dcx - D / 2)}px;top:${Math.round(dcy - DH / 2)}px;width:${D}px;height:${DH}px;opacity:0;will-change:transform,opacity;`);
   const shadow = box(doc, `left:6%;top:9%;width:88%;height:88%;border-radius:${card ? "10px" : "50%"};background:rgba(0,0,0,.55);filter:blur(10px);`);
   holder.appendChild(shadow);
   // the disc / card, printed with the game's art (built twice: one sits in the tray, one flies to the slot)
-  const makeItem = (): { el: HTMLElement; spin: HTMLElement | null } => {
-    const el = box(doc, "inset:0;");
-    if (card) {
-      const c = box(doc, `inset:0;border-radius:7px;clip-path:polygon(0 0, 80% 0, 100% 12%, 100% 100%, 0 100%);background:linear-gradient(180deg,#2c2f36,#101216);box-shadow:inset 0 0 0 2px rgba(255,255,255,.18);`);
-      c.appendChild(box(doc, `left:7%;top:6%;right:7%;height:62%;border-radius:4px;background:${art} center/cover no-repeat;box-shadow:0 0 0 2px rgba(255,255,255,.85);`));
-      c.appendChild(box(doc, `left:14%;right:14%;bottom:6%;height:10%;background:repeating-linear-gradient(90deg,#e0bf55 0 3px,#8a6d1c 3px 4px,transparent 4px 7px);border-radius:2px;`));
-      c.appendChild(box(doc, `inset:0;background:linear-gradient(120deg, rgba(255,255,255,.28), rgba(255,255,255,0) 40%);`));
-      el.appendChild(c);
-      return { el, spin: null };
-    }
-    const hole = "radial-gradient(circle, transparent 0 6.2%, #000 6.6%)";
-    const spin = box(doc, `inset:0;border-radius:50%;background:${art} center/cover no-repeat, ${pal.b};-webkit-mask:${hole};mask:${hole};`);
-    // clear hub ring and the outer rim (they spin with the print)
-    spin.appendChild(box(doc, `inset:0;border-radius:50%;background:radial-gradient(circle, transparent 0 6.4%, rgba(230,236,245,.62) 6.8% 15.2%, rgba(255,255,255,.95) 15.5% 16.1%, rgba(0,0,0,.25) 16.4% 17%, transparent 17.4% 95.6%, rgba(255,255,255,.7) 96.2% 97.4%, rgba(0,0,0,.45) 98%);`));
-    el.appendChild(spin);
-    // light on the disc stays still while it spins (plain alpha: blend modes would flatten the 3D case)
-    el.appendChild(box(doc, `inset:0;border-radius:50%;-webkit-mask:${hole};mask:${hole};background:conic-gradient(from 40deg, rgba(255,255,255,0) 0, rgba(255,255,255,.30) 6%, rgba(160,220,255,.14) 11%, rgba(255,255,255,0) 17%, rgba(255,255,255,0) 50%, rgba(255,255,255,.26) 56%, rgba(255,190,240,.12) 61%, rgba(255,255,255,0) 67%);`));
-    return { el, spin };
-  };
+  const mediaIn: MediaIn = { shapeId: L.shapeId, pal, media: L.media, window: L.window, windowMode: L.windowMode, artCss: art, artUrl: src.art || "", logo: src.logo || "", artMode, logoPos: L.logoPos, artY: L.artY };
+  const makeItem = () => buildMedia(doc, mediaIn);
   const flying = makeItem();
   holder.appendChild(flying.el);
   const spinner = flying.spin;
@@ -1557,8 +2299,10 @@ export function runInsert(doc: Document, src: InsertSrc, target: "auto" | "handh
     { transform: "rotateY(0deg)" },
   ], { duration: T_END });
   // the disc / card: lifts out with a small wobble, swings along an arc, turns edge-on and is pulled into the slot
-  const tx = handheld ? W / 2 - dcx : slotX + D * 0.7 - dcx;
-  const ty = handheld ? slotY + DH * 0.62 - dcy : H / 2 - dcy;
+  // the NES, SNES and N64 cartridges stop part-way in, the way they sit in the real console (stop = the share still sticking out)
+  const stop = spec && spec.stop ? spec.stop : 0;
+  const tx = handheld ? W / 2 - dcx : slotX + D * (stop ? 0.5 - stop : 0.7) - dcx;
+  const ty = handheld ? slotY + DH * (stop ? 0.5 - stop : 0.62) - dcy : H / 2 - dcy;
   const preX = handheld ? W / 2 - dcx : slotX - D * 0.8 - dcx;
   const preY = handheld ? slotY - DH * 0.75 - dcy : H / 2 - dcy;
   const midX = handheld ? preX * 0.5 - D * 0.18 : preX * 0.5, midY = handheld ? preY * 0.42 : preY * 0.5 - DH * 0.25;
@@ -1575,6 +2319,8 @@ export function runInsert(doc: Document, src: InsertSrc, target: "auto" | "handh
     { opacity: 1, transform: P(midX, midY, half, 0.95), offset: at(1250), easing: "cubic-bezier(.45,0,.55,1)" },
     { opacity: 1, transform: P(preX, preY, edge, 0.84), offset: at(1430), easing: "cubic-bezier(.6,0,1,.5)" },
     { opacity: 1, transform: P(tx, ty, edge, 0.82), offset: at(1580) },
+    // one that stays in view stays until the scene fades; the others have gone into the slot
+    ...(stop ? [{ opacity: 1, transform: P(tx, ty, edge, 0.82), offset: at(1950) }] : []),
     { opacity: 0, transform: P(tx, ty, edge, 0.82) },
   ], { duration: T_END });
   // a tiny jolt when it clicks in
@@ -1623,10 +2369,12 @@ export function runInsert(doc: Document, src: InsertSrc, target: "auto" | "handh
     ], { duration: T_END });
   }
   // eject: everything runs backwards, from the slot back into the case and back to the cover's place
+  // speed: every animation runs at the same rate (set before the eject reverses them, which flips the sign)
+  if (speed !== 1) fx.forEach((a) => { try { a.playbackRate = speed; } catch (e) { /* ignore */ } });
   if (eject) fx.forEach((a) => { try { a.reverse(); } catch (e) { /* ignore */ } });
-  if (sound) insertSounds(view, card, 0.85, eject ? "eject" : "insert", warp);
+  if (sound) insertSounds(view, card, 0.85, eject ? "eject" : "insert", warp, speed);
   const done = () => { fx.forEach((a) => { try { a.cancel(); } catch (e) { /* ignore */ } }); try { if (root.isConnected) root.remove(); } catch (e) { /* ignore */ } };
-  setTimeout(done, T_END + 80);
+  setTimeout(done, Math.round(T_END / speed) + 120);
   return true;
 }
 
@@ -1695,7 +2443,6 @@ export class Engine {
     if (!prev.enabled || this.watches.size === 0) { this.discover(); return; }
     this.watches.forEach((w) => {
       w.restyle();
-      if (prev.otherScreens !== s.otherScreens) w.checkPath(true);
     });
   }
 
@@ -1842,7 +2589,7 @@ export class Engine {
   /** Called when a sealed game's wrap was torn off (its own "Sealed" wear can then be removed). */
   onTear: ((key: string) => void) | null = null;
 
-  playInsert(key: string | null, opts: { eject?: boolean } = {}): boolean {
+  playInsert(key: string | null, opts: { eject?: boolean; force?: boolean } = {}): boolean {
     const eject = !!opts.eject;
     // Steam's windows: the watched ones, or (3D cases switched off) straight from Steam, so the animation works on its own
     let docs: Document[] = Array.from(this.watches.keys());
@@ -1905,6 +2652,8 @@ export class Engine {
     }
     if (!doc) return false;
     const look = lookFor(this.settings, this.prov, lookKey);
+    // the insert (or eject) animation can be on or off for each game and collection; "force" is the preview button
+    if (!opts.force && !(eject ? look.eject : look.insert)) return true;
     const rect = b ? { left: b.rect.left, top: b.rect.top, width: b.rect.width, height: b.rect.height } : null;
     // the game's cover art: the picture already on screen, else the art Steam has for the game (custom art first)
     const cands: string[] = [];
@@ -1923,36 +2672,35 @@ export class Engine {
     if (!eject && lookKey && look.wear === "sealed") {
       let info: PlayInfo | null = null;
       try { info = this.prov.playInfo(lookKey); } catch (e) { info = null; }
-      tear = this.settings.gameWears[lookKey] === "sealed" || (!!info && info.minutes <= 0 && !info.last);
+      tear = (this.settings.gameOv[lookKey] && this.settings.gameOv[lookKey].wear) === "sealed" || (!!info && info.minutes <= 0 && !info.last);
     }
-    const go = (art: string): boolean => {
+    // the game's logo, only when the logo option is on: custom logo first, then Steam's own (these addresses are Steam's
+    // own, as for the portrait art above; a game without a logo just gets the fitted cover)
+    const logoCands: string[] = [];
+    if (look.art === "logo" && lookKey && /^\d+$/.test(lookKey)) {
+      ["png", "jpg", "webp"].forEach((x) => logoCands.push(`/customimages/${lookKey}_logo.${x}`));
+      logoCands.push(`/assets/${lookKey}/logo.png`);
+      logoCands.push(`/assets/${lookKey}/logo_2x.png`);
+    }
+    const go = (art: string, logo = ""): boolean => {
       try {
-        const ok = runInsert(d, { rect, art, look }, this.settings.insertTarget, this.settings.insertSound, { eject, tear });
+        const ok = runInsert(d, { rect, art, logo, look }, look.slot, this.settings.insertSound,
+          { eject, tear, speed: eject ? this.settings.ejectSpeed : this.settings.insertSpeed, artMode: look.art });
         if (ok && tear && lookKey && this.onTear) this.onTear(lookKey);
         return ok;
       } catch (e) { this.noteError(e); return false; }
     };
-    if (!cands.length || b) return go(cands[0] || "");
-    // load the art first, all candidates at once, and take the best one that loads (at most ~1.5 s), so the case and
-    // the disc are never blank. Relative addresses are Steam's own (steamloopback.host), as in its own pages.
+    // the art is known at once when the cover is on screen; otherwise it is loaded first (below). The logo, if wanted, is
+    // loaded at the same time (short wait: it is a small local file), and the animation starts when both are settled.
     const view = d.defaultView as any;
-    const done: boolean[] = [], good: boolean[] = [];
-    let settled = false;
-    const decide = (force: boolean) => {
-      if (settled) return;
-      for (let i = 0; i < cands.length; i++) {
-        if (good[i]) { settled = true; go(cands[i]); return; }
-        if (!done[i] && !force) return; // a better one may still come
-      }
-      if (force || done.filter(Boolean).length === cands.length) { settled = true; go(""); }
-    };
-    cands.forEach((u, i) => {
-      const im = new view.Image();
-      im.onload = () => { done[i] = true; good[i] = im.naturalWidth > 10 && im.naturalHeight > im.naturalWidth; decide(false); };
-      im.onerror = () => { done[i] = true; decide(false); };
-      im.src = u;
-    });
-    setTimeout(() => decide(true), 1500);
+    let artRes: string | null = !cands.length ? "" : b ? cands[0] : null;
+    let logoRes: string | null = logoCands.length ? null : "";
+    if (artRes !== null && logoRes !== null) return go(artRes, logoRes);
+    const fire = () => { if (artRes !== null && logoRes !== null) go(artRes, logoRes); };
+    // all candidates at once, the best one that loads (at most ~1.5 s), so the case and the disc are never blank.
+    // Relative addresses are Steam's own (steamloopback.host), as in its own pages.
+    if (artRes === null) loadBest(view, cands, (im) => im.naturalWidth > 10 && im.naturalHeight > im.naturalWidth, 1500, (u) => { artRes = u; fire(); });
+    if (logoRes === null) loadBest(view, logoCands, (im) => im.naturalWidth > 10 && im.naturalHeight > 5, 800, (u) => { logoRes = u; fire(); });
     return true;
   }
 
@@ -2001,8 +2749,10 @@ export class Engine {
         }
       });
       tagged += box + simple;
-      lines.push(`- ${doc.title || "(untitled)"}: ${box} full 3D, ${simple} simple, ${w.decoys.size} glow/reflection copies left alone`);
+      lines.push(`- ${doc.title || "(untitled)"}: ${box} full 3D, ${simple} simple, ${w.decoys.size} glow/reflection copies left alone${w.plain.size ? `, ${w.plain.size} game page cover${w.plain.size === 1 ? "" : "s"} left plain` : ""}`);
       lines.push(`  screen: ${screenPath(doc) || "(unknown)"}${screenAllowed(doc, this.settings) ? "" : " (other screen, off)"}`);
+      { let rp = ""; try { rp = (this.prov.pagePath && this.prov.pagePath(doc)) || ""; } catch (e) { rp = ""; }
+        lines.push(`  game page: ${gamePageKey(doc, this.prov) || "no"}${rp ? ` (Steam's router: ${rp})` : ""}`); }
       lines.push(`  game found by: picture address ${how.src}, Steam data ${how.fiber}, name ${how.name}; not in your game list ${how.raw}; no id ${how.none}`);
       unknown.forEach((x) => lines.push(`  unmatched ${x}`));
       try {
