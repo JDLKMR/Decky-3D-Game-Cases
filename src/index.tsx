@@ -206,7 +206,7 @@ function allGames(): GameInfo[] {
   return out;
 }
 
-const VERSION = "1.12.0";
+const VERSION = "1.12.1";
 const lifeStats = { api: false, events: 0, last: 0, actions: 0 };
 
 // ---------- optional background part (reports, fallback injection, safe-mode file) ----------
@@ -897,6 +897,7 @@ function ovOfTarget(s: Settings, t: Target): ItemOv | undefined {
   return t.kind === "coll" ? s.collOv[t.id] : t.kind === "game" ? s.gameOv[t.id] : undefined;
 }
 
+const INTERIOR_BLACK: HslColor = { h: 222, s: 13, l: 10 }; // the tray's black (#15171c) in the insert animation
 function lookOfTarget(s: Settings, t: Target): Look {
   const one = (id: string | null) => lookForIds(s, id, id ? provider.collectionsOf(id) : []);
   if (t.kind === "coll") return lookForIds(s, null, [t.id]);
@@ -919,6 +920,7 @@ function ovBits(o: ItemOv | undefined): string[] {
   if (o.bandColor) a.push("own band color");
   if (o.frame === true) a.push("frame"); else if (o.frame === false) a.push("no frame");
   if (o.frameColor) a.push("own frame color");
+  if (o.interiorColor) a.push("own interior color");
   if (o.slot) a.push(o.slot === "handheld" ? "bottom slot" : "side slot");
   if (o.when) a.push(o.when === "before" ? "before game logo" : "after game logo");
   if (o.insert !== undefined) a.push(o.insert ? "insert on" : "insert off");
@@ -985,9 +987,9 @@ function ThicknessSection(props: { title: string; mode: "thin" | "standard" | "t
   );
 }
 
-function PresetButton(props: { s: Settings; id: StyleId; on: boolean; onClick: () => void }) {
+function PresetButton(props: { s: Settings; id: StyleId; on: boolean; first?: boolean; onClick: () => void }) {
   return (
-    <DialogButton className={props.on ? "on" : ""} onClick={props.onClick}>
+    <DialogButton className={(props.first ? "c3d-first " : "") + (props.on ? "on" : "")} onClick={props.onClick}>
       <Swatch s={props.s} id={props.id} /><span className="nm">{styleLabel(props.s, props.id)}</span>
     </DialogButton>
   );
@@ -1023,24 +1025,24 @@ function Picker(props: { s: Settings; target: Target; onPick: (id: StyleId | nul
         <h2>Preset</h2>
         <div className="c3d-hint">Choose a console preset below or select Automatic for the default preset ({styleLabel(s, s.color)}).</div>
         <NavGrid cls="c3d-grid">
-          <DialogButton className={!cur ? "on" : ""} onClick={() => props.onPick(null)}>Automatic</DialogButton>
+          <DialogButton className={"c3d-first" + (!cur ? " on" : "")} onClick={() => props.onPick(null)}>Automatic</DialogButton>
         </NavGrid>
       </div>)}
       <h2>Disc Presets</h2>
       <NavGrid cls="c3d-grid">
-        {DISC_PRESET_IDS.map((id) => <PresetButton key={id} s={s} id={id} on={cur === id} onClick={() => props.onPick(id)} />)}
+        {DISC_PRESET_IDS.map((id) => <PresetButton key={id} s={s} id={id} on={cur === id} first={isDefault && cur === id} onClick={() => props.onPick(id)} />)}
       </NavGrid>
       <h2>Cartridge Presets</h2>
       <NavGrid cls="c3d-grid">
-        {CART_PRESET_IDS.map((id) => <PresetButton key={id} s={s} id={id} on={cur === id} onClick={() => props.onPick(id)} />)}
+        {CART_PRESET_IDS.map((id) => <PresetButton key={id} s={s} id={id} on={cur === id} first={isDefault && cur === id} onClick={() => props.onPick(id)} />)}
       </NavGrid>
       {custom.length > 0 && (<div>
         <h2>Custom Presets</h2>
-        <NavGrid cls="c3d-grid">{custom.map((id) => <PresetButton key={id} s={s} id={id} on={cur === id} onClick={() => props.onPick(id)} />)}</NavGrid>
+        <NavGrid cls="c3d-grid">{custom.map((id) => <PresetButton key={id} s={s} id={id} on={cur === id} first={isDefault && cur === id} onClick={() => props.onPick(id)} />)}</NavGrid>
       </div>)}
       {tpls.length > 0 && (<div>
         <h2>Templates</h2>
-        <NavGrid cls="c3d-grid">{tpls.map((id) => <PresetButton key={id} s={s} id={id} on={cur === id} onClick={() => props.onPick(id)} />)}</NavGrid>
+        <NavGrid cls="c3d-grid">{tpls.map((id) => <PresetButton key={id} s={s} id={id} on={cur === id} first={isDefault && cur === id} onClick={() => props.onPick(id)} />)}</NavGrid>
       </div>)}
       {!isDefault && (<div>
         <div className="c3d-overrides">
@@ -1086,6 +1088,7 @@ function Picker(props: { s: Settings; target: Target; onPick: (id: StyleId | nul
         <ColorSection title={H("Band Color")} value={ov.bandColor} fallback={bandFb} onChange={(c) => patch({ bandColor: c })} />
         <TriRow title={H("Frame")} value={ov.frame} yes="Frame" no="No Frame" onChange={(v) => patch({ frame: v })} />
         <ColorSection title={H("Frame Color")} value={ov.frameColor} fallback={frameFb} onChange={(c) => patch({ frameColor: c })} />
+        <ColorSection title={H("Case Interior Color")} value={ov.interiorColor} fallback={look.interior || INTERIOR_BLACK} onChange={(c) => patch({ interiorColor: c })} />
         <h2>{H("Wear")}</h2>
         <NavGrid cls="c3d-grid">
           <DialogButton className={!ov.wear ? "on" : ""} onClick={() => patch({ wear: null })}>Automatic</DialogButton>
@@ -1125,7 +1128,7 @@ function PresetEditor(props: { s: Settings; c: CustomColor; onBack: () => void }
       <DialogButton style={{ marginBottom: 10 }} onClick={props.onBack}>Back</DialogButton>
       <LookPreview s={s} look={look} />
       <div className="c3d-card">
-        <TextField label="Name" value={c.name} onChange={(e: any) => upd({ name: String(e.target.value).slice(0, 24) })} />
+        <div className="c3d-first c3d-field"><TextField label="Name" value={c.name} onChange={(e: any) => upd({ name: String(e.target.value).slice(0, 24) })} /></div>
         <ToggleField label="Crystal (see-through)" checked={c.glass} onChange={(v: boolean) => upd({ glass: v })} />
       </div>
       <ColorSection title="Preset color" noAuto={true} value={{ h: c.h, s: c.s, l: c.l }} fallback={{ h: 210, s: 70, l: 45 }}
@@ -1154,14 +1157,57 @@ type PageTab = "games" | "collections" | "presets";
 // where you were on the page, kept while you are inside a game's, collection's or preset's settings, so Back (or B) returns to the same tab, search and row
 const nav: { tab: PageTab; q: string; focus: string | null; uninstalled: boolean } = { tab: "games", q: "", focus: null, uninstalled: false };
 const keyClass = (k: string) => "c3d-key-" + k.replace(/[^A-Za-z0-9_-]/g, "_");
+
+// ---- focus ----
+// Steam starts every page with nothing focused (and a page that was just drawn over another one has lost the focus it had), so the pages
+// put the focus where it belongs themselves: the search field when the tabs open, the first choice when a game's, collection's or preset's
+// settings open. The page's own document is remembered from its elements (the plugin's window can differ from the one Steam draws in).
+let pageDoc: Document | null = null;
+const isBody = (d: Document, a: Element | null) => !a || a === d.body || a === d.documentElement;
+/** Focus what pick() returns as soon as the page is drawn, and again a few times while nothing has the focus yet (Steam registers a page's buttons a moment after drawing it).
+ *  It stops as soon as something on the page has the focus, so it never takes the focus back from someone who has moved on. */
+function focusSoon(root: HTMLElement, pick: () => HTMLElement | null): void {
+  const doc = root.ownerDocument;
+  if (!doc) return;
+  pageDoc = doc;
+  const attempt = (n: number) => {
+    if (!root.isConnected) return;
+    const a = doc.activeElement;
+    const el = pick();
+    if (n === 0 ? (el && a === el) : !isBody(doc, a)) return;
+    if (el) { try { el.focus(); } catch (e) { /* ignore */ } }
+    if (n < 10) setTimeout(() => attempt(n + 1), n < 3 ? 40 : 120);
+  };
+  attempt(0);
+}
+/** The part of a text field that the controller moves to (not the input itself: focusing that would open the on-screen keyboard). */
+function fieldFocusable(root: HTMLElement): HTMLElement | null {
+  const input = root.querySelector("input, textarea");
+  for (let p = input ? input.parentElement : null; p && p !== root.parentElement; p = p.parentElement) if (p.hasAttribute("tabindex")) return p as HTMLElement;
+  return null;
+}
+// Callback refs (module-level, so React runs them once when the element appears, not on every draw).
+// The search field of the Games tab (not when a row is about to get the focus back: that is restoreFocus).
+const searchRef = (el: HTMLElement | null) => { if (el) focusSoon(el, () => (nav.focus ? null : fieldFocusable(el))); };
+// A game's, collection's or preset's settings: the first choice, marked c3d-first (a text field is marked c3d-field as well).
+const pageRef = (m: HTMLElement | null) => {
+  const root = m && m.parentElement;
+  if (!root) return;
+  focusSoon(root, () => {
+    const t = root.querySelector(".c3d-first") as HTMLElement | null;
+    if (!t) return root.querySelector(".c3d-nr > *") as HTMLElement | null;
+    return t.classList.contains("c3d-field") ? fieldFocusable(t) : t;
+  });
+};
+/** After Back: the row that was opened gets the focus again (and is scrolled to the middle). */
 function restoreFocus(): void {
   const key = nav.focus;
   if (!key) return;
   nav.focus = null;
   const go = (n: number) => {
-    const el = document.querySelector("." + keyClass(key)) as HTMLElement | null;
-    if (el) { try { el.scrollIntoView({ block: "center" }); (el as any).focus(); } catch (e) { /* ignore */ } }
-    else if (n < 8) setTimeout(() => go(n + 1), 80);
+    const el = (pageDoc || document).querySelector("." + keyClass(key)) as HTMLElement | null;
+    if (el) { try { el.scrollIntoView({ block: "center" }); el.focus(); } catch (e) { /* ignore */ } }
+    else if (n < 15) setTimeout(() => go(n + 1), 80);
   };
   setTimeout(() => go(0), 60);
 }
@@ -1179,6 +1225,7 @@ function BackOnB(props: { onBack: () => void; children?: any }) {
   return (
     <Focusable className="c3d-page" onCancel={back} onCancelButton={back} onCancelActionDescription="Back">
       <style>{CSS}</style>
+      <span ref={pageRef} style={{ display: "none" }} />
       {props.children}
     </Focusable>
   );
@@ -1219,6 +1266,7 @@ function CasesPage() {
     if (s.customs.length >= MAX_PRESETS) return;
     const id = Math.random().toString(36).slice(2, 8);
     commit({ ...s, customs: [...s.customs, { id, name: "My preset " + (s.customs.length + 1), h: 210, s: 70, l: 45, glass: false, shape: "auto" as const }] });
+    nav.focus = "preset:" + id; // Back returns to its row
     setPresetId(id); // open it at once, to name it and choose its colors
   };
   const toggleSel = (id: string) => setSel(sel.indexOf(id) >= 0 ? sel.filter((x) => x !== id) : [...sel, id]);
@@ -1238,7 +1286,7 @@ function CasesPage() {
   const rowText = (id: string | undefined, o: ItemOv | undefined, none: string) => [id ? styleLabel(s, id) : none, ...ovBits(o)].join(" - ");
   const gamesTab = (
     <div>
-      <TextField label="Search games" value={q} onChange={(e: any) => setQ(e.target.value)} />
+      <div ref={searchRef}><TextField label="Search games" value={q} onChange={(e: any) => setQ(e.target.value)} /></div>
       <div style={{ height: 8 }} />
       <NavGrid cls="c3d-grid">
         <DialogButton className={selecting ? "on" : ""} onClick={() => { setSelecting(!selecting); setSel([]); }}>Select Multiple</DialogButton>
@@ -1306,22 +1354,22 @@ function CasesPage() {
     </div>
   );
 
-  // Steam's own tab component gives the left and right bumpers for free; without it, plain buttons
+  // Steam's own tab component gives the left and right bumpers for free; without it, plain buttons.
+  // While a game's, collection's or preset's settings are open the tabs are not drawn at all: a hidden tab bar is still part of Steam's
+  // navigation, which is what left the page without focus, sent "up" to a tab nobody could see and made B close the whole page.
+  // Where you were (tab, search, row) is kept in `nav`, so Back brings it all back.
   if (Tabs) {
-    // while a sub page is open the tab contents are empty (nothing to draw for nothing), but the tab bar itself stays mounted
-    const body = (c: any) => (sub ? <div /> : <div className="c3d-tabbody"><style>{CSS}</style>{c}</div>);
+    if (sub) return sub;
+    const body = (c: any) => <div className="c3d-tabbody"><style>{CSS}</style>{c}</div>;
     const tabs = [
       { id: "games", title: "Games", content: body(gamesTab) },
       { id: "collections", title: "Collections", content: body(collectionsTab) },
       { id: "presets", title: "Presets", content: body(presetsTab) },
     ];
     return (
-      <>
-        {sub}
-        <div className="c3d-tabswrap" style={sub ? { display: "none" } : undefined}><style>{CSS}</style>
-          <Tabs tabs={tabs} activeTab={tab} onShowTab={(id: string) => setTab(id as PageTab)} />
-        </div>
-      </>
+      <div className="c3d-tabswrap"><style>{CSS}</style>
+        <Tabs tabs={tabs} activeTab={tab} onShowTab={(id: string) => setTab(id as PageTab)} autoFocusContents={true} />
+      </div>
     );
   }
   if (sub) return sub;

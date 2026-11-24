@@ -20,6 +20,8 @@ const PAL_RED = { a: "#ff2a38", b: "#7d000a", text: "#ffffff", line: "rgba(255,2
 const PAL_GREY = { a: "#c3c7ce", b: "#555961", text: "#101214", line: "rgba(255,255,255,.3)" };
 const PAL_WHITE = { a: "#ffffff", b: "#c9ccd3", text: "#1d1f24", line: LN_DARK };
 const PAL_PS5 = { a: "#3a8fe8", b: "#0b4396", text: "#ffffff", line: "rgba(255,255,255,.28)" };
+// the Xbox, Xbox 360 and Xbox One/Series presets share the Xbox 360's case color and frame color (each keeps its own band)
+const PAL_X360 = { a: "#8ae857", b: "#35a81c", frame: "#62d42e", text: "#0b2a05", line: "rgba(255,255,255,.4)" };
 const INK = "#0b0c0e", PAPER = "#f2f3f5";
 export const PRESETS: PresetDef[] = [
   // ---- discs ----
@@ -30,9 +32,9 @@ export const PRESETS: PresetDef[] = [
   { id: "ps3", label: "PS1/PS3", group: "disc", shape: "keepcase", pal: { a: "rgba(222,227,236,.55)", b: "rgba(118,124,138,.70)", band: "#0b0b0d", frame: "#b9bec9", text: "#10151c", line: "rgba(255,255,255,.55)" } },
   { id: "ps2", label: "PS2", group: "disc", shape: "keepcase", pal: { ...PAL_BLACK, band: INK, frame: INK } },
   { id: "ps5", label: "PS4/PS5", group: "disc", shape: "keepcase", pal: { ...PAL_PS5, band: "#1560c4", frame: "#1560c4" } },
-  { id: "xbox", label: "Xbox", group: "disc", shape: "keepcase", pal: { a: "#2e8b2e", b: "#0a380a", band: "#0b0b0b", frame: "#176b17", text: "#ffffff", line: LN_LIGHT }, media: DISC_BLACK },
-  { id: "x360", label: "Xbox 360", group: "disc", shape: "keepcase", pal: { a: "#8ae857", b: "#35a81c", band: "#ffffff", frame: "#62d42e", text: "#0b2a05", line: "rgba(255,255,255,.4)" }, media: DISC_WHITE },
-  { id: "xboxone", label: "Xbox One/Series", group: "disc", shape: "keepcase", pal: { a: "#34c24a", b: "#0b4a16", band: "#107c10", frame: "#107c10", text: "#ffffff", line: "rgba(255,255,255,.28)" } },
+  { id: "xbox", label: "Xbox", group: "disc", shape: "keepcase", pal: { ...PAL_X360, band: "#0b0b0b" }, media: DISC_BLACK },
+  { id: "x360", label: "Xbox 360", group: "disc", shape: "keepcase", pal: { ...PAL_X360, band: "#ffffff" }, media: DISC_WHITE },
+  { id: "xboxone", label: "Xbox One/Series", group: "disc", shape: "keepcase", pal: { ...PAL_X360, band: "#107c10" } },
   // ---- cartridges ----
   { id: "nes", noFrame: true, art: "cover", label: "NES", group: "cart", shape: "nes", pal: { ...PAL_BLACK, band: INK, frame: INK } },
   { id: "snes", noFrame: true, label: "SNES", group: "cart", shape: "snes", pal: { ...PAL_BLACK, band: INK, frame: INK } },
@@ -264,6 +266,8 @@ ${rules}
 }
 
 const hslCss = (c: HslColor) => `hsl(${c.h}, ${c.s}%, ${c.l}%)`;
+/** A color a little lighter (dl > 0) or darker (dl < 0) than c, and optionally see-through. */
+const toneCss = (c: HslColor, dl: number, alpha = 1) => `hsla(${c.h}, ${c.s}%, ${Math.min(97, Math.max(2, c.l + dl))}%, ${alpha})`;
 
 /** What one collection or one game decides for itself (Looks, colors and presets). Whatever it leaves out follows the next
  *  level: a game follows its collections, a collection follows the global settings. Any of these can differ from the global
@@ -278,6 +282,7 @@ export interface ItemOv {
   caseColor?: HslColor;              // color of the box (its sides, back and spine); the frame follows it unless it has a color of its own
   bandColor?: HslColor;
   frameColor?: HslColor;
+  interiorColor?: HslColor;          // color of the inside of the box in the insert/eject animation (the tray and the inside of the cover); the preset's frame color when not set, black for a preset without a frame
   thickMode?: "thin" | "standard" | "thick" | "varied"; // a thickness of its own (thin like a jewel case or the Switch, standard like a DVD case, thick like the old cartridges), or the preset's own
   thick?: number;                    // thickness as a multiple of the normal one (1 = normal)
   wear?: WearId;
@@ -291,7 +296,7 @@ export interface ItemOv {
   insert?: boolean;                  // insert animation on or off
   eject?: boolean;                   // eject animation on or off
 }
-export const OV_KEYS: (keyof ItemOv)[] = ["preset", "shape", "media", "off", "band", "frame", "caseColor", "bandColor", "frameColor", "thickMode", "thick", "wear", "art", "logoPos", "artY", "window", "windowMode", "slot", "when", "insert", "eject"];
+export const OV_KEYS: (keyof ItemOv)[] = ["preset", "shape", "media", "off", "band", "frame", "caseColor", "bandColor", "frameColor", "interiorColor", "thickMode", "thick", "wear", "art", "logoPos", "artY", "window", "windowMode", "slot", "when", "insert", "eject"];
 
 export function paletteFor(s: Settings, id: string, ov?: ItemOv | null): Pal {
   const base = basePalette(s, id);
@@ -445,7 +450,7 @@ function cleanOv(m: any, customs: CustomColor[]): ItemOv {
   if (validId(preset, customs)) o.preset = preset;
   if (SHAPE_IDS.indexOf(m.shape) >= 0) o.shape = m.shape;
   (["off", "band", "frame", "insert", "eject"] as const).forEach((k) => { if (typeof m[k] === "boolean") o[k] = m[k]; });
-  (["media", "caseColor", "bandColor", "frameColor", "window"] as const).forEach((k) => { const c = cleanHsl(m[k]); if (c) o[k] = c; });
+  (["media", "caseColor", "bandColor", "frameColor", "interiorColor", "window"] as const).forEach((k) => { const c = cleanHsl(m[k]); if (c) o[k] = c; });
   if (m.thickMode === "thin" || m.thickMode === "standard" || m.thickMode === "thick" || m.thickMode === "varied") o.thickMode = m.thickMode;
   const th = cleanThickNum(m.thick); if (th !== null) o.thick = th;
   if (WEAR_IDS.indexOf(m.wear) >= 0) o.wear = m.wear;
@@ -1281,6 +1286,7 @@ export interface Look {
   wear: WearId; media: HslColor | null;             // color of the disc or cartridge (null = the console's own plastic)
   art: InsertArt; window: HslColor | null;          // what is printed on it, and the color of a cartridge's art window (null = follow windowMode)
   logoPos: LogoPos; artY: number;                   // where the logo sits on a disc; how far the cover is moved (Cover (Fill))
+  interior: HslColor | null;                        // color of the inside of the box in the insert/eject animation (null = the old black)
   windowMode: "black" | "white" | "match"; slot: "handheld" | "console"; when: "before" | "after";
   off: boolean; band: boolean; frame: boolean; insert: boolean; eject: boolean;
 }
@@ -1310,8 +1316,11 @@ export function lookForIds(s: Settings, appid: string | null, colls: string[], i
   const shape = s.sleeve ? { ...base, radius: SLEEVE_R[shapeId] } : base;
   const dfac = thicknessFactor(s, ov, shapeId);
   const thick = typeof ov.thick === "number" ? ov.thick : 1;
+  const pal = paletteFor(s, style, ov);
+  // the inside of the box matches the frame color (with a game's or collection's own case or frame color, too); a preset that comes without a frame keeps the black
+  const interior = ov.interiorColor || (presetNoFrame(style) ? null : cssToHsl(pal.frame || pal.band));
   return {
-    style, pal: paletteFor(s, style, ov), shapeId, shape,
+    style, pal, shapeId, shape, interior,
     depthPx: Math.max(3, Math.round(s.depth * dfac * thick)), dfac, thick,
     wear: resolveWear(s, ov, info), media: ov.media || presetMedia(s, style),
     art: ov.art || presetArt(style) || s.insertArt, logoPos: ov.logoPos || "top", artY: typeof ov.artY === "number" ? ov.artY : 0, window: ov.window || null, windowMode: ov.windowMode || s.windowMode, slot: ov.slot || s.insertTarget, when: ov.when || s.insertWhen,
@@ -2185,15 +2194,22 @@ export function runInsert(doc: Document, src: InsertSrc, target: "handheld" | "c
   const shell = `linear-gradient(135deg, rgba(255,255,255,.10), rgba(0,0,0,.25)), ${pal.b}`;
   stage.appendChild(box(doc, `inset:0;border-radius:${rad}px;background:${shell};transform:translateZ(-${d}px);box-shadow:0 30px 60px rgba(0,0,0,.55);`));
   const discK = L.shapeId === "gc" ? 0.667 : 1; // a GameCube mini disc is 8 cm, a normal disc 12 cm
-  // inside: dark plastic tray with the hub (or a card slot)
+  // inside: the tray with the hub (or a card slot), in the case's interior color (dark plastic when there is none).
+  // Details (the hub, its rings) are a shade lighter than the tray, or a shade darker when the tray itself is light.
+  const inC = L.interior, lift = inC && inC.l > 60 ? -1 : 1;
+  const trayC = inC ? hslCss(inC) : "#15171c", trayD1 = inC ? hslCss(inC) : "#121418", trayD2 = inC ? hslCss(inC) : "#14161b";
+  const hubC = inC ? toneCss(inC, 14 * lift) : "#3d424b", ringC = inC ? toneCss(inC, -7 * lift) : "#0b0c0f", ring2C = inC ? toneCss(inC, 8 * lift) : "#2c3038";
   const tray = card
-    ? `linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.2)), repeating-linear-gradient(90deg, rgba(255,255,255,.025) 0 2px, transparent 2px 6px), #15171c`
-    : `radial-gradient(circle at 50% 50%, #3d424b 0 4.5%, #0b0c0f 5% 6.5%, #2c3038 7% 10.5%, #121418 11% ${(42 * discK).toFixed(1)}%, rgba(255,255,255,.07) ${(42.6 * discK).toFixed(1)}% ${(43.4 * discK).toFixed(1)}%, #14161b ${(44 * discK).toFixed(1)}% 100%)`;
+    ? `linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.2)), repeating-linear-gradient(90deg, rgba(255,255,255,.025) 0 2px, transparent 2px 6px), ${trayC}`
+    : `radial-gradient(circle at 50% 50%, ${hubC} 0 4.5%, ${ringC} 5% 6.5%, ${ring2C} 7% 10.5%, ${trayD1} 11% ${(42 * discK).toFixed(1)}%, rgba(255,255,255,.07) ${(42.6 * discK).toFixed(1)}% ${(43.4 * discK).toFixed(1)}%, ${trayD2} ${(44 * discK).toFixed(1)}% 100%)`;
   stage.appendChild(box(doc, `left:4%;top:3%;right:4%;bottom:3%;border-radius:${Math.max(2, rad - 2)}px;background:${tray};transform:translateZ(-${d - 2}px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06), inset 0 8px 18px rgba(0,0,0,.5);`));
   if (spec) {
     // a recess in the tray a little bigger than the cartridge
     const rw = Math.round(cw * spec.wf * 1.08), rh = Math.round(cw * spec.wf * spec.ratio * 1.08);
-    stage.appendChild(box(doc, `left:${Math.round(cw / 2 - rw / 2)}px;top:${Math.round(ch * 0.36 - rh / 2)}px;width:${rw}px;height:${rh}px;border-radius:6px;background:rgba(0,0,0,.55);box-shadow:inset 0 0 0 2px rgba(255,255,255,.07);transform:translateZ(-${d - 3}px);`));
+    // (shaped like the cartridge itself: its outline and rounded corners, with a lighter rim around it)
+    const rx = Math.round(cw / 2 - rw / 2), ry = Math.round(ch * 0.36 - rh / 2), rz = `transform:translateZ(-${d - 3}px);`;
+    stage.appendChild(box(doc, `left:${rx - 2}px;top:${ry - 2}px;width:${rw + 4}px;height:${rh + 4}px;border-radius:${spec.rad + 2}px;clip-path:${spec.clip};background:rgba(255,255,255,.07);${rz}`));
+    stage.appendChild(box(doc, `left:${rx}px;top:${ry}px;width:${rw}px;height:${rh}px;border-radius:${spec.rad}px;clip-path:${spec.clip};background:rgba(0,0,0,.55);${rz}`));
   }
   // walls: spine (left, hinge side), top, bottom, right
   stage.appendChild(box(doc, `top:0;bottom:0;left:0;width:${d}px;transform-origin:left center;transform:rotateY(90deg);background:linear-gradient(90deg, ${pal.a}, ${pal.b});`));
@@ -2204,13 +2220,13 @@ export function runInsert(doc: Document, src: InsertSrc, target: "handheld" | "c
   const cover = box(doc, `inset:0;transform-origin:left center;transform-style:preserve-3d;`);
   cover.appendChild(box(doc, `inset:0;border-radius:${rad}px;backface-visibility:hidden;background:${art} center/cover no-repeat, ${pal.b};box-shadow:inset 0 0 0 1px ${pal.line};`));
   cover.appendChild(box(doc, `inset:0;border-radius:${rad}px;backface-visibility:hidden;transform:translateZ(.6px);background:linear-gradient(90deg, rgba(0,0,0,.35) 0, rgba(255,255,255,.28) 1.6%, rgba(0,0,0,.15) 3.4%, transparent 7%), linear-gradient(115deg, rgba(255,255,255,.34), rgba(255,255,255,0) 32%, rgba(255,255,255,0) 62%, rgba(255,255,255,.12) 74%, transparent 76%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.3), inset 0 0 0 4px rgba(255,255,255,.08);`));
-  // inside of the cover: the dark sleeve with the art showing faintly through, and the manual clips
+  // inside of the cover: the sleeve (in the interior color) with the art showing faintly through, and the manual clips
   // a light sweep across the cover as the case turns towards you
   const glint = box(doc, `inset:0;border-radius:${rad}px;backface-visibility:hidden;transform:translateZ(.8px);overflow:hidden;`);
   const glintBar = box(doc, `top:-20%;bottom:-20%;left:-60%;width:45%;background:linear-gradient(100deg, transparent, rgba(255,255,255,.38), transparent);transform:skewX(-14deg);`);
   glint.appendChild(glintBar);
   cover.appendChild(glint);
-  cover.appendChild(box(doc, `inset:0;border-radius:${rad}px;backface-visibility:hidden;transform:rotateY(180deg);background:linear-gradient(rgba(12,14,19,.84), rgba(12,14,19,.92)), ${art} center/cover no-repeat;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);`));
+  cover.appendChild(box(doc, `inset:0;border-radius:${rad}px;backface-visibility:hidden;transform:rotateY(180deg);background:linear-gradient(${inC ? toneCss(inC, 0, .84) : "rgba(12,14,19,.84)"}, ${inC ? toneCss(inC, 0, .92) : "rgba(12,14,19,.92)"}), ${art} center/cover no-repeat;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);`));
   stage.appendChild(cover);
   root.appendChild(wrap);
 

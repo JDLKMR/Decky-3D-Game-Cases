@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.12.1
+Update from 1.12.0: install the new zip the same way as before. Your looks, wears, names and settings are kept.
+
+### Xbox presets
+- **Xbox** and **Xbox One/Series** now have the Xbox 360's case color and frame color (the light green case and frame, with the dark text and the lighter outline that go with it). Each keeps its own band color and the Xbox its black disc.
+
+### Case Interior Color (new)
+- **Case Interior Color** (Configuration, per game and per collection, next to *Frame Color*): the color of the inside of the box in the insert and eject animation, that is the tray the disc or cartridge sits in and the inside of the front cover.
+- *Automatic* matches the frame color of the preset (and follows a frame color or case color set for the game or collection). A preset that comes without a frame (NES, SNES, N64, GB, GBC, GBA) keeps the black it had before.
+- The hub and its rings on a disc tray are drawn a shade lighter than the tray (a shade darker when the tray is light). *Clear Overrides* and *Reset* remove it, and the list of a game's or collection's settings says *own interior color*.
+
+### Cartridge inserts
+- The recess the cartridge sits in (inside the case, in the insert and eject animation) now has the cartridge's own outline and rounded corners, with a lighter rim around it, instead of a plain rectangle.
+
+### Menu navigation
+- **Focus on opening.** Opening Configuration focuses the *Search games* field at once (the Collections and Presets tabs focus their first row), instead of starting with nothing focused and then jumping to the *Games* tab on the first button press.
+- **Game, collection and preset pages.** They open with the focus already in place, so "down" works at once: on **Automatic** under *Preset* for a game or collection (on the current preset for the default), and on the *Name* field for one of your own presets.
+- **B goes back one step.** The cause of the stuck page was the tab bar, which was only hidden while a game or collection page was open and still took part in the controller's navigation: "up" went to a tab nobody could see, and B (with the focus there) closed the whole Configuration page. The tabs are no longer drawn while a settings page is open; your tab, search and row are kept, so Back returns to them.
+- **New Preset.** Back from a new preset returns to its row in the list.
+
 ## 1.12.0
 Update from 1.11.x: install the new zip the same way as before. Your looks, wears, names and settings are kept; every new option starts at the old behaviour (except the two removed looks, below).
 
