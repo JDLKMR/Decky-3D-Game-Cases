@@ -1155,7 +1155,7 @@ const MAX_PRESETS = 24;
 type PageTab = "games" | "collections" | "presets";
 
 // where you were on the page, kept while you are inside a game's, collection's or preset's settings, so Back (or B) returns to the same tab, search and row
-const nav: { tab: PageTab; q: string; focus: string | null; uninstalled: boolean } = { tab: "games", q: "", focus: null, uninstalled: false };
+const nav: { tab: PageTab; q: string; focus: string | null; uninstalled: boolean; colls: string[] } = { tab: "games", q: "", focus: null, uninstalled: false, colls: [] };
 const keyClass = (k: string) => "c3d-key-" + k.replace(/[^A-Za-z0-9_-]/g, "_");
 
 // ---- focus ----
@@ -1237,6 +1237,9 @@ function CasesPage() {
   const setTab = (x: PageTab) => { nav.tab = x; setTabState(x); };
   const [uninst, setUninstState] = useState(nav.uninstalled);
   const setUninst = (x: boolean) => { nav.uninstalled = x; setUninstState(x); };
+  const [collFilter, setCollFilterState] = useState<string[]>(nav.colls);
+  const setCollFilter = (x: string[]) => { nav.colls = x; setCollFilterState(x); };
+  const [collOpen, setCollOpen] = useState(false); // the list of collections to filter the games by
   const [q, setQState] = useState(nav.q);
   const setQ = (x: string) => { nav.q = x; setQState(x); };
   const [target, setTarget] = useState<Target | null>(null);
@@ -1246,7 +1249,13 @@ function CasesPage() {
   const games = tab === "games" ? allGames() : [];
   const colls = tab === "collections" ? collections().list : [];
   const needle = q.trim().toLowerCase();
-  const matches = games.filter((g) => (uninst || g.installed) && (!needle || g.name.toLowerCase().indexOf(needle) >= 0));
+  // Filter Collections: only the games in any of the chosen collections (a collection that no longer exists is ignored, so it can never hide every game)
+  const collInfo = tab === "games" ? collections() : null;
+  const collList = collInfo ? collInfo.list : [];
+  const activeColls = collFilter.filter((id) => collList.some((c) => c.id === id));
+  const inChosenColl = (key: string) => { const of = collInfo && collInfo.byApp.get(key); return !!of && of.some((id) => activeColls.indexOf(id) >= 0); };
+  const matches = games.filter((g) => (uninst || g.installed) && (!needle || g.name.toLowerCase().indexOf(needle) >= 0) && (!activeColls.length || inChosenColl(g.id)));
+  const toggleColl = (id: string) => setCollFilter(activeColls.indexOf(id) >= 0 ? activeColls.filter((x) => x !== id) : [...activeColls, id]);
   const shown = matches.slice(0, 60);
 
   // a game or a collection stays open after a change, so several settings can be made one after the other
@@ -1291,6 +1300,9 @@ function CasesPage() {
       <NavGrid cls="c3d-grid">
         <DialogButton className={selecting ? "on" : ""} onClick={() => { setSelecting(!selecting); setSel([]); }}>Select Multiple</DialogButton>
         <DialogButton className={uninst ? "on" : ""} onClick={() => setUninst(!uninst)}>Show Uninstalled Games</DialogButton>
+        <DialogButton className={collOpen || activeColls.length ? "on" : ""} onClick={() => setCollOpen(!collOpen)}>
+          {activeColls.length ? `Filter Collections (${activeColls.length})` : "Filter Collections"}
+        </DialogButton>
         {selecting && <DialogButton onClick={() => setSel(matches.map((g) => g.id))}>Select all {matches.length} shown by search</DialogButton>}
         {selecting && sel.length > 0 && (
           <DialogButton className="on" onClick={() => setTarget({ kind: "bulk", id: "", name: `${sel.length} selected games`, ids: sel })}>
@@ -1298,6 +1310,25 @@ function CasesPage() {
           </DialogButton>
         )}
       </NavGrid>
+      {collOpen && (
+        collList.length === 0 ? <div className="c3d-hint">No collections found. Make some in your Library first.</div> : (
+          <div>
+            <div className="c3d-hint">Show only the games in the collections you choose.</div>
+            <NavGrid cls="c3d-grid">
+              {activeColls.length > 0 && <DialogButton key="clear" onClick={() => setCollFilter([])}>Clear Filter</DialogButton>}
+              {collList.map((c) => {
+                const on = activeColls.indexOf(c.id) >= 0;
+                return (
+                  <DialogButton key={c.id} className={on ? "on" : ""} onClick={() => toggleColl(c.id)}>
+                    <div className={"c3d-chk" + (on ? " on" : "")} />
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name} ({c.apps.length})</span>
+                  </DialogButton>
+                );
+              })}
+            </NavGrid>
+          </div>
+        )
+      )}
       {games.length === 0 && <div className="c3d-hint">Couldn't read your game list from Steam.</div>}
       {shown.map((g) => {
         const o = s.gameOv[g.id];
@@ -1460,7 +1491,7 @@ function Content() {
           <ToggleField label="Enabled" checked={s.enabled} onChange={(v: boolean) => change({ enabled: v })} />
         </PanelSectionRow>
         <PanelSectionRow>
-          <ButtonItem layout="below" description={`Default: ${styleLabel(s, s.color)}`} onClick={() => { nav.tab = "games"; nav.q = ""; nav.focus = null; nav.uninstalled = false; Router.CloseSideMenus(); Navigation.Navigate(PAGE); }}>
+          <ButtonItem layout="below" description={`Default: ${styleLabel(s, s.color)}`} onClick={() => { nav.tab = "games"; nav.q = ""; nav.focus = null; nav.uninstalled = false; nav.colls = []; Router.CloseSideMenus(); Navigation.Navigate(PAGE); }}>
             Configuration
           </ButtonItem>
         </PanelSectionRow>

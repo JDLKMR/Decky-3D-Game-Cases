@@ -7,6 +7,13 @@ Update from 1.12.1: install the new zip the same way as before. Your looks, wear
 - **Switch 2**, in the Cartridge Presets right after **Switch**. It is the Switch preset with a different cartridge: the same case, band color, frame color and thickness, but the card is red, and the mark in its red band is simpler and centered: two larger white dots (rounded squares, close together), with two tiny white lines of the same length under them (the lower one a little thicker), the whole mark almost a square.
 - **Switch 2** is also a case shape (after **Switch** in the *Case shape* rows), so a game or collection can use the Switch 2 card with any preset.
 
+### Filter Collections
+- The **Games** tab has a new **Filter Collections** button, to the right of **Show Uninstalled Games**. It opens a list of your collections; choose one or more and the games list shows only the games that are in any of them (the button then shows how many are chosen). Choose a collection again to remove it, or use **Clear Filter**. The filter works together with the search and **Show Uninstalled Games**, and **Select all** only selects the games that are shown. It is kept while you are inside a game's settings, so Back returns to the same filtered list.
+- The buttons above the list are now three to a row, so **Select all N shown by search** and **Choose a preset or settings for N** (while selecting multiple) sit on the row below.
+
+### Game Boy and Game Boy Color prints
+- The **GB** and **GBC** presets now print **Cover (Fill)** on their cartridges, like **NES** and **N64**, unless a game or collection (or the Print setting of its own) says otherwise. A preset's print still wins over the global *Game Cover Style*; a game's or collection's own setting wins over the preset's.
+
 ## 1.12.1
 Update from 1.12.0: install the new zip the same way as before. Your looks, wears, names and settings are kept.
 
