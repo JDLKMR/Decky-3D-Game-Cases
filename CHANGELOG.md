@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.12.2
+Update from 1.12.1: install the new zip the same way as before. Your looks, wears, names and settings are kept.
+
+### Switch 2 preset (new)
+- **Switch 2**, in the Cartridge Presets right after **Switch**. It is the Switch preset with a different cartridge: the same case, band color, frame color and thickness, but the card is red, and the mark in its red band is simpler and centered: two larger white dots (rounded squares, close together), with two tiny white lines of the same length under them (the lower one a little thicker), the whole mark almost a square.
+- **Switch 2** is also a case shape (after **Switch** in the *Case shape* rows), so a game or collection can use the Switch 2 card with any preset.
+
 ## 1.12.1
 Update from 1.12.0: install the new zip the same way as before. Your looks, wears, names and settings are kept.
 

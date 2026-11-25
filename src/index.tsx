@@ -206,7 +206,7 @@ function allGames(): GameInfo[] {
   return out;
 }
 
-const VERSION = "1.12.1";
+const VERSION = "1.12.2";
 const lifeStats = { api: false, events: 0, last: 0, actions: 0 };
 
 // ---------- optional background part (reports, fallback injection, safe-mode file) ----------

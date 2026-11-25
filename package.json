@@ -1,6 +1,6 @@
 {
   "name": "3d-game-cases",
-  "version": "1.12.1",
+  "version": "1.12.2",
   "description": "Decky Loader plugin: turns Steam Deck library covers into tilted 3D game cases. Works with non-Steam games.",
   "type": "module",
   "author": "SANSO",

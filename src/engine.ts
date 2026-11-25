@@ -45,6 +45,7 @@ export const PRESETS: PresetDef[] = [
   { id: "ds", label: "DS", group: "cart", shape: "ds", pal: { ...PAL_WHITE, band: "#f4f5f7", frame: INK } },
   { id: "3ds", label: "3DS", group: "cart", shape: "3ds", pal: { ...PAL_WHITE, band: PAPER, frame: PAPER } },
   { id: "switch", label: "Switch", group: "cart", shape: "cartridge", pal: { ...PAL_RED, band: "#e60012", frame: "#e60012" } },
+  { id: "switch2", label: "Switch 2", group: "cart", shape: "cartridge2", pal: { ...PAL_RED, band: "#e60012", frame: "#e60012" } }, // the Switch's case, with the red Switch 2 card
 ];
 export const STYLE_IDS: StyleId[] = PRESETS.map((p) => p.id);
 export const DISC_PRESET_IDS: StyleId[] = PRESETS.filter((p) => p.group === "disc").map((p) => p.id);
@@ -55,11 +56,11 @@ PRESETS.forEach((p) => { STYLE_LABELS[p.id] = p.label; PALETTE[p.id] = p.pal; })
 export const DEFAULT_PRESET: StyleId = "steam";
 export function presetDef(id: string): PresetDef | null { return PRESETS.filter((p) => p.id === id)[0] || null; }
 
-// "cartridge" is the Switch game card (its id is kept so saved settings still work)
-export type ShapeId = "keepcase" | "gc" | "cartridge" | "jewel" | "bigbox" | "nes" | "snes" | "n64" | "gb" | "gbc" | "gba" | "ds" | "3ds";
-export const SHAPE_IDS: ShapeId[] = ["keepcase", "jewel", "bigbox", "nes", "snes", "n64", "gb", "gbc", "gba", "gc", "ds", "3ds", "cartridge"];
+// "cartridge" is the Switch game card (its id is kept so saved settings still work); "cartridge2" is the red Switch 2 game card
+export type ShapeId = "keepcase" | "gc" | "cartridge" | "cartridge2" | "jewel" | "bigbox" | "nes" | "snes" | "n64" | "gb" | "gbc" | "gba" | "ds" | "3ds";
+export const SHAPE_IDS: ShapeId[] = ["keepcase", "jewel", "bigbox", "nes", "snes", "n64", "gb", "gbc", "gba", "gc", "ds", "3ds", "cartridge", "cartridge2"];
 export const SHAPE_LABELS: Record<string, string> = {
-  auto: "Auto", keepcase: "Standard", gc: "GCN", cartridge: "Switch", jewel: "Thin", bigbox: "Thick",
+  auto: "Auto", keepcase: "Standard", gc: "GCN", cartridge: "Switch", cartridge2: "Switch 2", jewel: "Thin", bigbox: "Thick",
   nes: "NES", snes: "SNES", n64: "N64", gb: "GB", gbc: "GBC", gba: "GBA", ds: "DS", "3ds": "3DS",
 };
 // Thickness is a multiple of the "Box Thickness" slider, which is the thickness of a standard DVD case (so a DVD case is 100%).
@@ -74,6 +75,7 @@ const SHAPES: Record<ShapeId, { depth: number; radius: number; rim: number }> = 
   keepcase: { depth: DVD_CASE, radius: 2, rim: 0 },
   gc: { depth: DVD_CASE, radius: 2, rim: 0 }, // like a keepcase; only the disc (a mini disc) is smaller
   cartridge: { depth: THINNEST, radius: 5, rim: 0 },
+  cartridge2: { depth: THINNEST, radius: 5, rim: 0 }, // the same case as the Switch
   jewel: { depth: THINNEST, radius: 1, rim: 3 },
   bigbox: { depth: THICKEST, radius: 0, rim: 0 },
   n64: { depth: OLD_CART, radius: 4, rim: 0 },
@@ -85,7 +87,7 @@ const SHAPES: Record<ShapeId, { depth: number; radius: number; rim: number }> = 
   snes: { depth: OLD_CART, radius: 4, rim: 0 },
   "3ds": { depth: DVD_CASE, radius: 6, rim: 0 },
 };
-const SLEEVE_R: Record<ShapeId, number> = { keepcase: 7, gc: 7, cartridge: 10, jewel: 2, bigbox: 2, n64: 8, gba: 9, gb: 8, gbc: 8, ds: 10, nes: 6, snes: 8, "3ds": 10 };
+const SLEEVE_R: Record<ShapeId, number> = { keepcase: 7, gc: 7, cartridge: 10, cartridge2: 10, jewel: 2, bigbox: 2, n64: 8, gba: 9, gb: 8, gbc: 8, ds: 10, nes: 6, snes: 8, "3ds": 10 };
 
 /** a color for a game's cartridge in the insert animation: hue 0-360, saturation and lightness 0-100 */
 export interface HslColor { h: number; s: number; l: number }
@@ -1767,9 +1769,9 @@ export interface InsertOpts { eject?: boolean; tear?: boolean; speed?: number; a
 
 // The game cards and cartridges that go into the slot. Sizes are a share of the case width (wf) and height / width (ratio);
 // label = [left, top, right, height] and pins = [left, right, bottom, height] in % of the cartridge. The shapes are stylised.
-type CartKind = "card" | "nes" | "snes" | "n64" | "gb" | "gbc" | "gba" | "ds" | "ds3";
+type CartKind = "card" | "card2" | "nes" | "snes" | "n64" | "gb" | "gbc" | "gba" | "ds" | "ds3";
 interface CartSpec { wf: number; ratio: number; clip: string; body: string; rad: number; label: number[]; pins?: number[] /* gold contacts along the bottom [left, right, bottom, height] (only the Game Boy Color shows them) */; grip: boolean; radius?: string /* the label's own border-radius */; bands?: [number, number] /* white bands over the top and the bottom of the label, % of its height; the art window is what lies between them */; notch?: number /* the art window's top edge steps up in the middle, % of the cartridge's height */; logo?: "ds" | "3ds" /* the console's mark in the top band: a line, thicker at the right end, which grows downward from the line's top edge (and red where the 3 is on the 3DS) */; barcode?: "center" | "right" /* dashes in the bottom band, centered or at its right end */; ridges?: number[] /* [left, top, width, height] of a ridged grip panel */; under?: string[] /* css of extra pieces drawn under the label (a see-through cartridge shows its circuit board) */; extra?: string[] /* css of extra pieces drawn over it (grooves, slot, arrow) */; glass?: boolean /* see-through plastic */; slant?: number /* the label's lower left corner is cut off, this many % of the cartridge's width */; noOutline?: boolean /* no white edge around the label */; stop?: number /* in the insert animation it goes only part of the way into the slot, this share of it still out (0.4 = 40%) */; strips?: [number, number] /* a light sticker with a vertical strip on each side of the art (Game Boy, Game Boy Color), each with three black dots in a column; widths in % of the label's width: [left, right] */; plate?: { bg: string; win: [number, number, number, number]; parts: string[] } /* a label printed around the art (SNES): its ground, the art window [left, top, width, height] and the printed pieces, all in % of the label */ }
-const CART_OF: Partial<Record<ShapeId, CartKind>> = { cartridge: "card", nes: "nes", snes: "snes", n64: "n64", gb: "gb", gbc: "gbc", gba: "gba", ds: "ds", "3ds": "ds3" };
+const CART_OF: Partial<Record<ShapeId, CartKind>> = { cartridge: "card", cartridge2: "card2", nes: "nes", snes: "snes", n64: "n64", gb: "gb", gbc: "gbc", gba: "gba", ds: "ds", "3ds": "ds3" };
 /** An embedded downward arrow: a dark triangle with a light edge just below it, so it looks pressed into the plastic. Percentages of the cartridge. */
 function arrowPieces(l: number, t: number, w: number, h: number, dark = 0.35): string[] {
   const tri = "clip-path:polygon(0 0,100% 0,50% 100%);";
@@ -1788,23 +1790,53 @@ function lensClip(): string {
   }
   return `clip-path:polygon(${top.concat(bot).join(",")});`;
 }
-const CART: Record<CartKind, CartSpec> = {
-  // the Switch game card: small and tall, dark gray, a recessed black panel with the red band (the console's logo) above the art,
-  // a black strip with the number under it, the notch at the top and the arrow at the bottom; square corners at the top
-  card: {
-    wf: 0.3, ratio: 1.45, clip: "none", body: "linear-gradient(180deg,#4a4c52,#26282d)", rad: 9, label: [8, 28.5, 8, 49], noOutline: true, grip: false,
+/** The Switch game cards: small and tall, a recessed black panel with the red band (the console's logo) above the art,
+ *  a black strip with the number under it, the notch at the top and the arrow at the bottom; square corners at the top.
+ *  The Switch and the Switch 2 differ only in the color of the plastic and in the mark in the red band (the pieces in "mark"). */
+function switchCard(body: string, mark: string[]): CartSpec {
+  return {
+    wf: 0.3, ratio: 1.45, clip: "none", body, rad: 9, label: [8, 28.5, 8, 49], noOutline: true, grip: false,
     under: ["left:5%;right:5%;top:6%;height:84%;border-radius:7px;background:#0b0c0e;"],
     extra: [
       "left:8%;right:8%;top:9.5%;height:19%;border-radius:4px 4px 0 0;background:linear-gradient(180deg,#ee3a3f,#d11a22);",
-      "left:13%;width:15%;top:13.8%;height:10.4%;border-radius:3px;border:2px solid rgba(255,255,255,.92);",
-      "left:32%;right:13%;top:15.2%;height:3%;background:rgba(255,255,255,.92);",
-      "left:32%;right:13%;top:19.8%;height:4%;background:rgba(255,255,255,.96);",
+      ...mark,
       "left:8%;right:8%;top:77.5%;height:11%;border-radius:0 0 4px 4px;background:#0c0d0f;",
       "left:16%;right:16%;top:81.8%;height:2.6%;background:repeating-linear-gradient(90deg,rgba(255,255,255,.8) 0 2px,transparent 2px 4px);",
       "left:34%;right:34%;top:1.5%;height:2.4%;border-radius:0 0 2px 2px;background:#0d0e11;",
       ...arrowPieces(41, 90.8, 18, 5, 0.6),
     ],
-  },
+  };
+}
+/** The Switch 2 mark in the red band: two larger, close-together white dots (rounded squares) in a row, and two tiny white lines under them,
+ *  both as long as the row is wide. The whole mark is nearly a square, centered in the band. Sizes are worked out in units of the cartridge's
+ *  width (a dot's width and height are then equal); heights are divided by ratio (the cartridge's height / width) to get % of its height.
+ *  bandTop and bandH are the band's top and height in % of the cartridge's height. */
+function switch2Mark(ratio: number, bandTop: number, bandH: number): string[] {
+  const dot = 6.2, dotGap = 1.6, rowW = dot * 2 + dotGap;   // the row of dots; the two lines are as long as it is wide
+  const line1 = 2, line2 = 2.8;                              // thickness of the tiny line, and of the slightly thicker one under it
+  const gap1 = 2, gap2 = 1.2;                                // dots to the first line, first line to the second
+  const total = dot + gap1 + line1 + gap2 + line2;           // about as tall as the row is wide: a square
+  const f = (n: number) => n.toFixed(2), h = (n: number) => f(n / ratio);
+  const y0 = bandTop + (bandH - total / ratio) / 2;          // top of the mark, % of the cartridge's height
+  const y1 = y0 + (dot + gap1) / ratio, y2 = y1 + (line1 + gap2) / ratio;
+  const x0 = 50 - rowW / 2;
+  const white = "rgba(255,255,255,.95)";
+  return [
+    `left:${f(x0)}%;width:${dot}%;top:${f(y0)}%;height:${h(dot)}%;border-radius:28%;background:${white};`,
+    `left:${f(x0 + dot + dotGap)}%;width:${dot}%;top:${f(y0)}%;height:${h(dot)}%;border-radius:28%;background:${white};`,
+    `left:${f(x0)}%;width:${f(rowW)}%;top:${f(y1)}%;height:${h(line1)}%;background:${white};`,
+    `left:${f(x0)}%;width:${f(rowW)}%;top:${f(y2)}%;height:${h(line2)}%;background:${white};`,
+  ];
+}
+const CART: Record<CartKind, CartSpec> = {
+  // the Switch game card (see switchCard): dark gray, with the console's logo (a box and two lines) in the red band
+  card: switchCard("linear-gradient(180deg,#4a4c52,#26282d)", [
+    "left:13%;width:15%;top:13.8%;height:10.4%;border-radius:3px;border:2px solid rgba(255,255,255,.92);",
+    "left:32%;right:13%;top:15.2%;height:3%;background:rgba(255,255,255,.92);",
+    "left:32%;right:13%;top:19.8%;height:4%;background:rgba(255,255,255,.96);",
+  ]),
+  // the Switch 2 game card: the same card in red, with a simpler mark, centered in the red band
+  card2: switchCard("linear-gradient(180deg,#f2323d,#cf1520)", switch2Mark(1.45, 9.5, 19)),
   n64: { stop: 0.4, wf: 0.7, ratio: 0.7, clip: "polygon(52% 0%, 62.3% 1%, 68.5% 2%, 73% 3%, 76.5% 4%, 82.5% 6%, 87.3% 8%, 92% 10%, 95.6% 12%, 97.6% 14%, 98.7% 16%, 100% 18.5%, 100% 95.4%, 99.9% 96.6%, 99.6% 97.7%, 99.1% 98.7%, 98.4% 99.4%, 97.6% 99.8%, 96.8% 100%, 3.2% 100%, 2.4% 99.8%, 1.6% 99.4%, 0.9% 98.7%, 0.4% 97.7%, 0.1% 96.6%, 0% 95.4%, 0% 18.5%, 1.3% 16%, 2.4% 14%, 4.4% 12%, 8% 10%, 12.7% 8%, 17.5% 6%, 23.5% 4%, 27% 3%, 31.5% 2%, 37.7% 1%, 48% 0%)", body: "linear-gradient(180deg,#b9babe,#84858a)", rad: 0, label: [25.9, 10.9, 25.6, 80.2], noOutline: true, radius: "50% 50% 4px 4px / 5.5% 5.5% 4px 4px", grip: false, extra: [
     // the two vertical lines (grooves) beside the label
     "left:20.2%;top:5%;width:0.8%;height:94%;background:linear-gradient(90deg,rgba(0,0,0,.38) 0 50%,rgba(255,255,255,.3) 50%);",
