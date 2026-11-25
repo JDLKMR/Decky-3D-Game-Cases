@@ -657,6 +657,7 @@ const CSS = `
 .c3d-grid .c3d-nr > * { margin: 0 !important; height: 46px !important; min-height: 46px !important; display: flex !important; align-items: center !important;
   justify-content: flex-start !important; gap: 10px; padding: 0 10px !important; font-size: 13px !important; box-sizing: border-box !important; min-width: 0 !important; }
 .c3d-grid .on { outline: 2px solid #1a9fff; }
+.c3d-grid .c3d-off { opacity: .4; }
 .c3d-card { border: 1px solid rgba(255,255,255,.15); border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; }
 .c3d-seg3 .c3d-nr > * { margin: 0 !important; min-width: 0 !important; width: 100% !important; height: 36px !important; min-height: 36px !important; padding: 0 4px !important; font-size: 12px !important; line-height: 1.1 !important; display: flex !important; align-items: center !important; justify-content: center !important; box-sizing: border-box !important; }
 .c3d-seg3 .on { background: #1a9fff !important; color: #fff !important; font-weight: bold; }
@@ -1315,7 +1316,8 @@ function CasesPage() {
           <div>
             <div className="c3d-hint">Show only the games in the collections you choose.</div>
             <NavGrid cls="c3d-grid">
-              {activeColls.length > 0 && <DialogButton key="clear" onClick={() => setCollFilter([])}>Clear Filter</DialogButton>}
+              {/* always there, so the collections never shift when the first one is chosen; grayed out (but still focusable, so the controller's focus is never lost when it is pressed) while nothing is chosen */}
+              <DialogButton key="clear" className={activeColls.length ? "" : "c3d-off"} aria-disabled={!activeColls.length} onClick={() => { if (activeColls.length) setCollFilter([]); }}>Clear Filter</DialogButton>
               {collList.map((c) => {
                 const on = activeColls.indexOf(c.id) >= 0;
                 return (

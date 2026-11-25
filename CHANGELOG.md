@@ -8,7 +8,7 @@ Update from 1.12.1: install the new zip the same way as before. Your looks, wear
 - **Switch 2** is also a case shape (after **Switch** in the *Case shape* rows), so a game or collection can use the Switch 2 card with any preset.
 
 ### Filter Collections
-- The **Games** tab has a new **Filter Collections** button, to the right of **Show Uninstalled Games**. It opens a list of your collections; choose one or more and the games list shows only the games that are in any of them (the button then shows how many are chosen). Choose a collection again to remove it, or use **Clear Filter**. The filter works together with the search and **Show Uninstalled Games**, and **Select all** only selects the games that are shown. It is kept while you are inside a game's settings, so Back returns to the same filtered list.
+- The **Games** tab has a new **Filter Collections** button, to the right of **Show Uninstalled Games**. It opens a list of your collections; choose one or more and the games list shows only the games that are in any of them (the button then shows how many are chosen). Choose a collection again to remove it, or use **Clear Filter**, which is always the first button in the list (grayed out while no collection is chosen), so the collections never shift when you choose the first one. The filter works together with the search and **Show Uninstalled Games**, and **Select all** only selects the games that are shown. It is kept while you are inside a game's settings, so Back returns to the same filtered list.
 - The buttons above the list are now three to a row, so **Select all N shown by search** and **Choose a preset or settings for N** (while selecting multiple) sit on the row below.
 
 ### Game Boy and Game Boy Color prints
